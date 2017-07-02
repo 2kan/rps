@@ -5,6 +5,8 @@ const PORT = 3000;
 const TITLE = "RPS Server";
 const VERSION = "0.1";
 
+const SALTLENGTH = 64;
+
 const logger = require( "./Logger.js" );
 
 const crypto = require( "crypto" );
@@ -77,12 +79,64 @@ app.post( "/api/login", function ( a_req, a_res )
 } );
 
 
+app.post( "/api/register", function ( a_req, a_res )
+{
+	var missingFields = GetMissingFields( a_req.body, [ "user", "pass", "email" ] );
+	if ( missingFields.length > 0 )
+	{
+		logger.verbose( "Attempted user registration from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	var hash = crypto.createHash( "sha256" );
+	var salt = GetRandomString( SALTLENGTH );
+
+	hash.update( salt + a_req.body.pass );
+	var saltedPass = hash.digest( "hex" );
+
+	dbService.queryPrepared( "INSERT INTO t_users " +
+		"(username, emailAddress, passwordHash, passwordSalt) VALUES " +
+		"(:user, :email, :hash, :salt)", {
+			user: a_req.body.user,
+			email: a_req.body.email,
+			hash: saltedPass,
+			salt: salt
+		}, function ( a_result )
+		{
+			if ( a_result.err == undefined )
+			{
+				// User added successfully
+				a_res.send( { ok: true } );
+			}
+			else
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+				// TODO: change so that the db error isn't sent to the client
+			}
+		} );
+
+} );
+
+
 app.listen( PORT, function ()
 {
 	logger.info( "%s v%s started on port %d", TITLE, VERSION, PORT );
 } );
 
+function GetRandomString( a_length )
+{
+	var chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`~!@#$%^&*()-_=+[]{},.<>?";
+	var out = "";
 
+	for ( var i = 0; i < a_length; ++i )
+	{
+		out += chars[ Math.floor( Math.random() * chars.length ) ];
+	}
+
+	return out;
+}
 
 function GetMissingFields( a_haystack, a_needles )
 {
