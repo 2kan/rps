@@ -269,10 +269,10 @@ app.post( "/api/games", function ( a_req, a_res )
 //
 // Returns game details and all rounds and turns for that game
 // TODO: return data summary
-app.post( "/api/games", function ( a_req, a_res )
+app.post( "/api/game", function ( a_req, a_res )
 {
 	// TODO: Have the parameter checking be managed in a function
-	var missingFields = GetMissingFields( a_req.body, [ "sessionId" ] );
+	var missingFields = GetMissingFields( a_req.body, [ "sessionId", "gameId" ] );
 	if ( missingFields.length > 0 )
 	{
 		logger.verbose( "Attempted login from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
@@ -323,7 +323,7 @@ app.post( "/api/games", function ( a_req, a_res )
 									roundId: game.currentRoundId
 								}, ( a_roundResult ) =>
 									{
-										res.games[ res.games.length ] = {
+										res.games[ i ] = {
 											gameId: game.gameId,
 											timeStarted: game.dateAdded,
 											lastUpdated: game.dateUpdated,
