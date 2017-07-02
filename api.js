@@ -402,10 +402,12 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
 				gameid: a_req.body.gameId
-			}, function ( a_result )
+			}, ( a_result ) =>
 				{
+					var game = a_result.rows[ 0 ];
+
 					// Check if game is already complete
-					if ( a_result.rows[ 0 ].winnerId != 0 )
+					if ( game.winnerId != 0 )
 					{
 						a_res.status( 400 ).send( { error: "Game already finished." } );
 					}
@@ -425,13 +427,27 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 								if ( round.winnerId != 0 )
 									continue;
 
-								// Add new turn
-								dbService.queryPrepared( "INSERT INTO t_turns " +
-									"(roundId, userId, action) VALUES (:roundId, :userId, :action)",
-									( a_turnResult ) =>
-									{
+									// TODO
+									// - Check if the round is completed
+									// - If it is, add a new round if there is no game winner
+									// - If it's not, add a new turn and calculate the winner (if necessary)
 
-									} );
+								var playerNumber = ( game.playerOneId == userId ) ? "playerOne" : "playerTwo";
+								var opponentNumber = ( game.playerOneId != userId ) ? "playerOne" : "playerTwo";
+								var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
+
+								// Add a new turn
+								SubmitTurn( round.roundId, userId, a_req.body.action, ( a_index, a_turnResult ) =>
+								{
+									dbService.queryPrepared( "SELECT * FROM t_turns WHERE turnId = :opponentTurnId",
+										{ opponentTurnId: opponentId } );
+
+									dbService.queryPrepared( "UPDATE t_rounds SET " + playerNumber + "TurnId = :turnId, winnerId = :winnerId",
+										{ turnId: a_turnResult.id, winnerId: }
+								} );
+
+								// Only one turn should be updated, so end the loop here
+								break;
 							}
 						}
 					);
@@ -503,6 +519,20 @@ function GetTurns( a_roundId, a_responseIndex, a_callback )
 		( a_turnResults ) =>
 		{
 			a_callback( a_responseIndex, a_turnResults.rows );
+		}
+	);
+}
+
+
+function SubmitTurn( a_round, a_userId, a_action, a_index, a_callback )
+{
+	// Add new turn
+	dbService.queryPrepared( "INSERT INTO t_turns " +
+		"(roundId, userId, action) VALUES (:roundId, :userId, :action)",
+		{ roundId: a_round, userId: a_userId, action: a_action },
+		( a_turnResult ) =>
+		{
+			a_callback( a_index, a_turnResult );
 		}
 	);
 }

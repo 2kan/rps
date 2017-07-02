@@ -127,9 +127,9 @@ function ShowGame( a_gameId )
 		{
 			var game = a_response.game;
 
-			var playerTurnTemplate = "<div class='content'><i class='hand :action icon'></i> " +
+			var playerTurnTemplate = "<div class='content player'><i class='hand :action icon'></i> " +
 				"You played :action</div>";
-			var opponentTurnTemplate = "<div class='content'><i class='hand :action icon'></i> " +
+			var opponentTurnTemplate = "<div class='content opponent'><i class='hand :action icon'></i> " +
 				"Opponent played :action</div>";
 
 
@@ -155,10 +155,26 @@ function ShowGame( a_gameId )
 						roundObj.append( $( opponentTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
 				}
 
+				// Check if ONLY the opponent has played their turn so we can hide their action
+				var turns = roundObj.find( ".content" );
+				if ( turns.length == 1 )
+				{
+					// Check that the only turn is the opponent's
+					if ( turns.hasClass( "opponent" ) )
+					{
+						// Replace the icon
+						$( turns ).find( "i" ).removeClass( "hand" );
+						$( turns ).find( "i" ).addClass( "help" );
+
+						// Replace the text
+						$( turns ).html( $( turns ).html().replace( " rock", "..." ).replace( " paper", "..." ).replace( " scissors", "..." ) );
+					}
+				}
+				// help
 				$( "#roundList" ).append( roundObj );
 			}
 
-			if ( game.winnerId != 0 )
+			if ( game.winnerId == 0 )
 			{
 				SetupGameArea();
 				_currentGame = game.gameId;
@@ -185,7 +201,7 @@ function ShowGame( a_gameId )
 
 function SetupGameArea()
 {
-	$( "#gameArea button" ).removeClass( "disabled" );
+	$( "#gameArea .button" ).removeClass( "disabled" );
 }
 
 
@@ -229,9 +245,9 @@ function SortRounds( a, b )
 	var bDate = new Date( b.dateUpdated );
 
 	if ( aDate < bDate )
-		return -1;
-	if ( aDate > bDate )
 		return 1;
+	if ( aDate > bDate )
+		return -1;
 
 	return 0;
 }
