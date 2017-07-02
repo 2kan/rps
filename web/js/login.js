@@ -20,6 +20,7 @@ $( document ).ready( function ()
 			if ( a_response.error == undefined )
 			{
 				document.cookie = "sessionid=" + a_response.sessionId;
+				document.cookie = "userid=" + a_response.userId;
 				window.location.href = "index.html";
 			}
 			else
