@@ -32,6 +32,16 @@ app.use( function ( a_req, a_res, a_next )
 } );
 
 
+
+// POST /api/login
+//
+// Required input
+// + user (string)
+// + pass (string)
+//
+// Returns session ID of new session and user ID of user
+// + sessionId (string)
+// + userId (number)
 app.post( "/api/login", function ( a_req, a_res )
 {
 	var missingFields = GetMissingFields( a_req.body, [ "user", "pass" ] );
@@ -57,10 +67,11 @@ app.post( "/api/login", function ( a_req, a_res )
 					// Successfully authenticated
 
 					// Create session for user
-					CreateSession( a_result.rows[ 0 ].userId, ( a_result ) =>
+					var userId = a_result.rows[ 0 ].userId;
+					CreateSession( userId, ( a_result ) =>
 					{
 						if ( a_result.err == undefined )
-							a_res.send( { sessionId: a_result.sessionId } );
+							a_res.send( { sessionId: a_result.sessionId, userId: userId } );
 						else
 						{
 							a_res.status( 500 ).send( { error: "Could not create session." } );
@@ -89,6 +100,15 @@ app.post( "/api/login", function ( a_req, a_res )
 } );
 
 
+// POST /api/register
+//
+// Required input
+// + user (string)
+// + pass (string)
+// + email (string)
+//
+// Returns "ok" if successful or error on failure
+// + ok (bool)
 app.post( "/api/register", function ( a_req, a_res )
 {
 	var missingFields = GetMissingFields( a_req.body, [ "user", "pass", "email" ] );
@@ -126,6 +146,214 @@ app.post( "/api/register", function ( a_req, a_res )
 				// TODO: change so that the db error isn't sent to the client
 			}
 		} );
+
+} );
+
+
+
+// POST /api/games
+//
+// Required input
+// + sessionId
+//
+// Returns list of games that the user is involved in
+// + games [
+// 		+ gameId (number)
+// 		+ timeStarted (string)
+// 		+ lastUpdated (string)
+// 		+ playerOneId (number)
+// 		+ playerTwoId (number)
+// 		+ opponentName (string)
+// 		+ opponentId (number)
+// 		+ winnerId (number)
+// 		+ currentRound {
+// 			+ roundId (number)
+// 			+ playerOneTurnId (number)
+// 			+ playerTwoTurnId (number)	
+//		}
+// ]
+app.post( "/api/games", function ( a_req, a_res )
+{
+	// TODO: Have the parameter checking be managed in a function
+	var missingFields = GetMissingFields( a_req.body, [ "sessionId" ] );
+	if ( missingFields.length > 0 )
+	{
+		logger.verbose( "Attempted login from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	// Get the user ID from the submitted session ID
+	dbService.queryPrepared( "SELECT * FROM t_sessions WHERE hash = :sessionid", {
+		sessionid: a_req.body.sessionId
+	}, function ( a_result )
+		{
+			// Check if there were any errors or if more/less than one entry was returned
+			if ( a_result.err != undefined )
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+				return;
+			}
+			else if ( a_result.rows.length != 1 )
+			{
+				a_res.status( 400 ).send( { error: "Not authorised." } );
+				return;
+			}
+
+			var userId = a_result.rows[ 0 ].userId;
+
+			dbService.queryPrepared( "SELECT * FROM t_games WHERE (t_games.playerOneId = :id OR t_games.playerTwoId = :id)", {
+				id: userId
+			}, function ( a_result )
+				{
+					// Create the response object
+					var res = {
+						games: [],
+					};
+
+					for ( var i = 0; i < a_result.rows.length; ++i )
+					{
+						var game = a_result.rows[ 0 ];
+						var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
+
+						dbService.queryPrepared( "SELECT userid, username FROM t_users WHERE userid = :opponentid", {
+							opponentid: opponentId
+						}, ( a_opponentResult ) =>
+							{
+
+								dbService.queryPrepared( "SELECT playerOneTurnId, playerTwoTurnId FROM t_rounds WHERE roundId = :roundId", {
+									roundId: game.currentRoundId
+								}, ( a_roundResult ) =>
+									{
+										res.games[ res.games.length ] = {
+											gameId: game.gameId,
+											timeStarted: game.dateAdded,
+											lastUpdated: game.dateUpdated,
+											playerOneId: game.playerOneId,
+											playerTwoId: game.playerTwoId,
+											opponentName: a_opponentResult.rows[ 0 ].username,
+											opponentId: a_opponentResult.rows[ 0 ].userid,
+											winnerId: game.winnerId,
+											currentRound: {
+												roundId: game.currentRoundId,
+												playerOneTurnId: a_roundResult.rows[ 0 ].playerOneTurnId,
+												playerTwoTurnId: a_roundResult.rows[ 0 ].playerTwoTurnId
+											}
+										};
+
+										// Because this is all done asynchronously, the below ensures
+										// that the response isn't sent until all games have been set
+										if ( i >= a_result.rows.length )
+										{
+											a_res.send( { games: res.games } );
+										}
+									}
+								);
+							}
+						);
+					}
+				} // One hell of a scope pyramid
+			); // Thanks node.js
+		}
+	);
+
+} );
+
+
+// POST /api/game
+//
+// Required input
+// + sessionId
+// + gameId
+//
+// Returns game details and all rounds and turns for that game
+// TODO: return data summary
+app.post( "/api/games", function ( a_req, a_res )
+{
+	// TODO: Have the parameter checking be managed in a function
+	var missingFields = GetMissingFields( a_req.body, [ "sessionId" ] );
+	if ( missingFields.length > 0 )
+	{
+		logger.verbose( "Attempted login from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	// Get the user ID from the submitted session ID
+	dbService.queryPrepared( "SELECT * FROM t_sessions WHERE hash = :sessionid", {
+		sessionid: a_req.body.sessionId
+	}, function ( a_result )
+		{
+			// Check if there were any errors or if more/less than one entry was returned
+			if ( a_result.err != undefined )
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+				return;
+			}
+			else if ( a_result.rows.length != 1 )
+			{
+				a_res.status( 400 ).send( { error: "Not authorised." } );
+				return;
+			}
+
+			var userId = a_result.rows[ 0 ].userId;
+
+			dbService.queryPrepared( "SELECT * FROM t_games WHERE (t_games.playerOneId = :id OR t_games.playerTwoId = :id)", {
+				id: userId
+			}, function ( a_result )
+				{
+					// Create the response object
+					var res = {
+						games: [],
+					};
+
+					for ( var i = 0; i < a_result.rows.length; ++i )
+					{
+						var game = a_result.rows[ 0 ];
+						var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
+
+						dbService.queryPrepared( "SELECT userid, username FROM t_users WHERE userid = :opponentid", {
+							opponentid: opponentId
+						}, ( a_opponentResult ) =>
+							{
+
+								dbService.queryPrepared( "SELECT playerOneTurnId, playerTwoTurnId FROM t_rounds WHERE roundId = :roundId", {
+									roundId: game.currentRoundId
+								}, ( a_roundResult ) =>
+									{
+										res.games[ res.games.length ] = {
+											gameId: game.gameId,
+											timeStarted: game.dateAdded,
+											lastUpdated: game.dateUpdated,
+											playerOneId: game.playerOneId,
+											playerTwoId: game.playerTwoId,
+											opponentName: a_opponentResult.rows[ 0 ].username,
+											opponentId: a_opponentResult.rows[ 0 ].userid,
+											winnerId: game.winnerId,
+											currentRound: {
+												roundId: game.currentRoundId,
+												playerOneTurnId: a_roundResult.rows[ 0 ].playerOneTurnId,
+												playerTwoTurnId: a_roundResult.rows[ 0 ].playerTwoTurnId
+											}
+										};
+
+										// Because this is all done asynchronously, the below ensures
+										// that the response isn't sent until all games have been set
+										if ( i >= a_result.rows.length )
+										{
+											a_res.send( { games: res.games } );
+										}
+									}
+								);
+							}
+						);
+					}
+				} // One hell of a scope pyramid
+			); // Thanks node.js
+		}
+	);
 
 } );
 
@@ -179,4 +407,6 @@ function CreateSession( a_userId, a_callback )
 
 			a_callback( { sessionId: session } );
 		} );
+
+	// TODO: void all previous sessions from user
 }
