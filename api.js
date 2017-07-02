@@ -22,6 +22,16 @@ app.use( bodyParser.urlencoded( { extended: false } ) );
 app.use( bodyParser.json() );
 
 
+// Middleware to enable CORS
+app.use( function ( a_req, a_res, a_next )
+{
+	if ( a_req.headers.origin )
+		a_res.header( "Access-Control-Allow-Origin", a_req.headers.origin );
+
+	a_next();
+} );
+
+
 app.post( "/api/login", function ( a_req, a_res )
 {
 	var missingFields = GetMissingFields( a_req.body, [ "user", "pass" ] );
