@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<!--<meta name="viewport" content="width=device-width,initial-scale=1">-->
+
+	<title>RPS</title>
+
+	<!--<link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon" />
+	<link rel="icon" href="img/favicon.ico" type="image/x-icon" />-->
+
+	<!--<meta name="author" content="name">
+	<meta name="description" content="description here">
+	<meta name="keywords" content="keywords,here">
+
+	<link rel='stylesheet' href='//fonts.googleapis.com/css?family=font1|font2|etc' type='text/css'>-->
+	<link rel="stylesheet" href="css/styles.css" type="text/css" />
+	<link rel="stylesheet" href="css/ball.css" type="text/css" />
+	<link rel="stylesheet" href="semantic/dist/semantic.min.css" type="text/css" />
+
+	<script src="js/pace.min.js"></script>
+	<link rel="stylesheet" href="css/pace.theme.css" />
+</head>
+
+<body class="pushable">
+	<div class="pusher">
+		<div class="ui vertical inverted sidebar menu visible" id="primaryMenu">
+			<div class="item">
+				Logo
+				<!--<img class="ui image" src="img/tycoon-logo.png" />-->
+			</div>
+
+			<a class="item active" href="/index.html">
+				Dashboard
+				<div class="ui left pointing label teal">1</div>
+			</a>
+			<a class="item" href="/pages/students.html">Settings</a>
+			<a class="item" onclick="Logout()">Logout</a>
+
+			<div class="item">
+				Put stats here
+			</div>
+		</div>
+
+		<div class="outlet">
+			<div class="ui grid">
+				<div class="four wide column" id="gamesListContainer">
+					<h4 class="ui dividing header listHeader">Current games</h4>
+
+					<div class="ui relaxed divided list" id="gamesList">
+						<div class="item">
+							<i class="large send outline middle aligned icon"></i>
+							<div class="content">
+								<a class="header">Ultra player 89</a>
+								<div class="description">Updated 10 minutes ago</div>
+							</div>
+						</div>
+						<div class="item">
+							<i class="large send middle aligned icon"></i>
+							<div class="content">
+								<a class="header">Ultra player 89</a>
+								<div class="description">Updated 10 minutes ago</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="six wide column" id="gameAreaContainer">
+					<div id="gameArea">
+
+					</div>
+				</div>
+
+				<div class="four wide column" id="roundListContainer">
+					<h4 class="ui dividing header listHeader">Previous rounds</h4>
+
+					<div class="ui relaxed divided list" id="roundList">
+						<!--<div class="item">
+							<div class="header">Previous rounds</div>
+						</div>-->
+						<div class="item">
+
+							<div class="content">
+								<i class="hand paper icon"></i> You played paper
+							</div>
+							<div class="content">
+								<i class="hand rock icon"></i> Opponent played rock
+							</div>
+						</div>
+						<div class="item">
+
+							<div class="content">
+								<i class="hand scissors icon"></i> You played scissors
+							</div>
+							<div class="content">
+								<i class="hand scissors icon"></i> Opponent played scissors
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script type="text/javascript" src="js/jquery.min.js"></script>
+		<script type="text/javascript" src="semantic/dist/semantic.min.js"></script>
+		<script type="text/javascript" src="js/script.js"></script>
+</body>
+
+</html>

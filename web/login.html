@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<!--<meta name="viewport" content="width=device-width,initial-scale=1">-->
+
+	<title>Login | RPS</title>
+
+	<!--<link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon" />
+	<link rel="icon" href="img/favicon.ico" type="image/x-icon" />-->
+
+	<!--<meta name="author" content="name">
+	<meta name="description" content="description here">
+	<meta name="keywords" content="keywords,here">
+
+	<link rel='stylesheet' href='//fonts.googleapis.com/css?family=font1|font2|etc' type='text/css'>-->
+	<link rel="stylesheet" href="semantic/dist/semantic.min.css" type="text/css" />
+</head>
+
+<body style="background-color: #DADADA">
+
+	<div class="ui middle aligned center aligned grid" style="margin-top:150px">
+		<div class="eight wide column">
+			<h2 class="ui blue image header">
+				<!--<img src="assets/images/logo.png" class="image">-->
+				<div class="content">
+					Log-in to your account
+				</div>
+			</h2>
+			<form class="ui large form">
+				<div class="ui stacked segment">
+					<div class="field">
+						<div class="ui left icon input">
+							<i class="user icon"></i>
+							<input type="text" id="user" placeholder="Username">
+						</div>
+					</div>
+					<div class="field">
+						<div class="ui left icon input">
+							<i class="lock icon"></i>
+							<input type="password" id="pass" placeholder="Password">
+						</div>
+					</div>
+					<div class="ui fluid large blue submit button" id="loginButton">Login</div>
+				</div>
+
+				<div class="ui error message"></div>
+
+			</form>
+
+			<div class="ui message">
+				New here? <a href="#">Sign Up</a>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript" src="js/jquery.min.js"></script>
+	<script type="text/javascript" src="semantic/dist/semantic.min.js"></script>
+	<script type="text/javascript" src="js/login.js"></script>
+</body>
+
+</html>

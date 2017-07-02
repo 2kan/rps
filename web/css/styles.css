@@ -1,0 +1,58 @@
+.outlet
+{
+	margin-left: 210px;
+}
+
+.page-content
+{
+	padding: 10px;
+}
+
+#gamesListContainer
+{
+	margin-bottom: 1em;
+	width: 250px !important;
+}
+
+#editForm
+{
+	max-width: 486px;
+}
+
+#areYouSureModal .actions
+{
+	text-align: center;
+}
+
+#defaultText
+{
+	margin-top: 25px;
+	text-align: center;
+	font-size: x-large;
+	color: gray;
+}
+
+#gamesListContainer
+{
+	padding-left: 20px;
+}
+
+.listHeader
+{
+	padding-top: 5px !important;
+}
+
+
+/* Semantic UI overrides
+ * TODO: edit the Semantic UI LESS scripts to do this
+ */
+
+.ui.divided.list .list>.item:first-child, .ui.divided.list>.item:first-child
+{
+	border-top: inherit !important;
+}
+
+.ui.secondary.pointing.menu .item
+{
+	padding-left: 0 !important;
+}
