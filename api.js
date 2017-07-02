@@ -178,7 +178,7 @@ app.post( "/api/games", function ( a_req, a_res )
 	var missingFields = GetMissingFields( a_req.body, [ "sessionId" ] );
 	if ( missingFields.length > 0 )
 	{
-		logger.verbose( "Attempted login from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+		logger.verbose( "Attempted retrieval of games list from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
 
 		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
 		return;
@@ -275,6 +275,106 @@ app.post( "/api/game", function ( a_req, a_res )
 	var missingFields = GetMissingFields( a_req.body, [ "sessionId", "gameId" ] );
 	if ( missingFields.length > 0 )
 	{
+		logger.verbose( "Attempted retrieval of a game from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	// Get the user ID from the submitted session ID
+	dbService.queryPrepared( "SELECT * FROM t_sessions WHERE hash = :sessionid", {
+		sessionid: a_req.body.sessionId
+	}, function ( a_result )
+		{
+			// Check if there were any errors or if more/less than one entry was returned
+			if ( a_result.err != undefined )
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+				return;
+			}
+			else if ( a_result.rows.length != 1 )
+			{
+				a_res.status( 400 ).send( { error: "Not authorised." } );
+				return;
+			}
+
+			var userId = a_result.rows[ 0 ].userId;
+
+			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
+				gameid: a_req.body.gameId
+			}, function ( a_result )
+				{
+					if ( a_result.rows.length != 1 )
+					{
+						a_res.status( 400 ).send( { error: "Game not found." } );
+						return;
+					}
+
+					var game = a_result.rows[ 0 ];
+					var res = {
+						gameId: game.gameId,
+						playerOneId: game.playerOneId,
+						playerTwoId: game.playerTwoId,
+						lastUpdated: game.dateUpdated,
+						timeStarted: game.dateAdded,
+						roundCount: game.roundCould,
+						winnerId: game.winnerId,
+						currentRoundId: game.currentRoundId,
+						rounds: []
+					};
+
+					dbService.queryPrepared( "SELECT * FROM t_rounds WHERE gameId = :gameid", { gameid: game.gameId },
+						( a_roundResult ) =>
+						{
+							console.log( a_roundResult.rows );
+
+							var roundsComplete = 0;
+							for ( var i = 0; i < a_roundResult.rows.length; ++i )
+							{
+								var round = a_roundResult.rows[ i ];
+
+								res.rounds[ i ] = {
+									roundId: round.roundId,
+									winnerId: round.winnerId,
+									dateUpdated: round.dateUpdated
+								}
+
+								GetTurns( round.roundId, i, ( a_index, a_turns ) =>
+								{
+									res.rounds[ a_index ].turns = a_turns;
+									++roundsComplete;
+
+									if ( roundsComplete == a_roundResult.rows.length )
+									{
+										a_res.send( { game: res } );
+									}
+								} );
+							}
+						}
+					);
+				} // One hell of a scope pyramid
+			); // Thanks node.js
+		}
+	);
+
+} );
+
+
+// POST /api/submitTurn
+//
+// Required input
+// + sessionId
+// + gameId
+// + action
+//
+// Returns game details and all rounds and turns for that game
+// TODO: return data summary
+app.post( "/api/submitTurn", function ( a_req, a_res )
+{
+	// TODO: Have the parameter checking be managed in a function
+	var missingFields = GetMissingFields( a_req.body, [ "sessionId", "gameId", "action" ] );
+	if ( missingFields.length > 0 )
+	{
 		logger.verbose( "Attempted login from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
 
 		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
@@ -300,56 +400,41 @@ app.post( "/api/game", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
-			dbService.queryPrepared( "SELECT * FROM t_games WHERE (t_games.playerOneId = :id OR t_games.playerTwoId = :id)", {
-				id: userId
+			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
+				gameid: a_req.body.gameId
 			}, function ( a_result )
 				{
-					// Create the response object
-					var res = {
-						games: [],
-					};
-
-					for ( var i = 0; i < a_result.rows.length; ++i )
+					// Check if game is already complete
+					if ( a_result.rows[ 0 ].winnerId != 0 )
 					{
-						var game = a_result.rows[ 0 ];
-						var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
-
-						dbService.queryPrepared( "SELECT userid, username FROM t_users WHERE userid = :opponentid", {
-							opponentid: opponentId
-						}, ( a_opponentResult ) =>
-							{
-
-								dbService.queryPrepared( "SELECT playerOneTurnId, playerTwoTurnId FROM t_rounds WHERE roundId = :roundId", {
-									roundId: game.currentRoundId
-								}, ( a_roundResult ) =>
-									{
-										res.games[ i ] = {
-											gameId: game.gameId,
-											timeStarted: game.dateAdded,
-											lastUpdated: game.dateUpdated,
-											playerOneId: game.playerOneId,
-											playerTwoId: game.playerTwoId,
-											opponentName: a_opponentResult.rows[ 0 ].username,
-											opponentId: a_opponentResult.rows[ 0 ].userid,
-											winnerId: game.winnerId,
-											currentRound: {
-												roundId: game.currentRoundId,
-												playerOneTurnId: a_roundResult.rows[ 0 ].playerOneTurnId,
-												playerTwoTurnId: a_roundResult.rows[ 0 ].playerTwoTurnId
-											}
-										};
-
-										// Because this is all done asynchronously, the below ensures
-										// that the response isn't sent until all games have been set
-										if ( i >= a_result.rows.length )
-										{
-											a_res.send( { games: res.games } );
-										}
-									}
-								);
-							}
-						);
+						a_res.status( 400 ).send( { error: "Game already finished." } );
 					}
+
+					// Get current incomplete turn
+					// Submit turn
+					// Check if winner
+
+					dbService.queryPrepared( "SELECT * FROM t_rounds WHERE gameId = :gameid", { gameid: game.gameId },
+						( a_roundResult ) =>
+						{
+							for ( var i = 0; i < a_roundResult.rows.length; ++i )
+							{
+								var round = a_roundResult.rows[ i ];
+
+								// Skip if this round has been completed
+								if ( round.winnerId != 0 )
+									continue;
+
+								// Add new turn
+								dbService.queryPrepared( "INSERT INTO t_turns " +
+									"(roundId, userId, action) VALUES (:roundId, :userId, :action)",
+									( a_turnResult ) =>
+									{
+
+									} );
+							}
+						}
+					);
 				} // One hell of a scope pyramid
 			); // Thanks node.js
 		}
@@ -409,4 +494,15 @@ function CreateSession( a_userId, a_callback )
 		} );
 
 	// TODO: void all previous sessions from user
+}
+
+
+function GetTurns( a_roundId, a_responseIndex, a_callback )
+{
+	dbService.queryPrepared( "SELECT * FROM t_turns WHERE roundId = :roundid", { roundid: a_roundId },
+		( a_turnResults ) =>
+		{
+			a_callback( a_responseIndex, a_turnResults.rows );
+		}
+	);
 }

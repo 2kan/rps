@@ -1,5 +1,12 @@
 var _session = undefined;
 var _userid = undefined;
+var _currentGame = undefined;
+
+const ACTIONS = [
+	"rock",
+	"paper",
+	"scissors"
+];
 
 $( document ).ready( function ()
 {
@@ -57,7 +64,7 @@ function SetupActiveGames()
 
 				game.on( "click", function ()
 				{
-					ShowGame($(this).data("gameid"));
+					ShowGame( $( this ).data( "gameid" ) );
 				} );
 
 				// Determine if this game is waiting on the user to have their turn
@@ -67,18 +74,31 @@ function SetupActiveGames()
 					++gamesPending;
 					game.find( "i" ).addClass( "outline" );
 				}
+				else if ( games[ i ].winnerId != 0 )
+				{
+					game.find( "i" ).removeClass( "send" );
+
+					if ( games[ i ].winnerId == _userid )
+						// Show trophy icon if the user won the round
+						game.find( "i" ).addClass( "trophy" );
+					else
+						// Show a frowny face if the user lost
+						game.find( "i" ).addClass( "frown" );
+
+
+				}
 
 				$( "#gamesList" ).append( game );
 			}
 
-			if (gamesPending > 0)
+			if ( gamesPending > 0 )
 			{
-				$("#dashboardCounter").text(gamesPending);
-				$("#dashboardCounter").css("display", "");
+				$( "#dashboardCounter" ).text( gamesPending );
+				$( "#dashboardCounter" ).css( "display", "" );
 			}
 			else
 			{
-				$("#dashboardCounter").css("display", "none");
+				$( "#dashboardCounter" ).css( "display", "none" );
 			}
 		}
 		else
@@ -93,11 +113,128 @@ function SetupActiveGames()
 }
 
 
-function ShowGame()
+function ShowGame( a_gameId )
 {
+	$.ajax( {
+		url: "http://localhost:3000/api/game",
+		method: "post",
+		data: { sessionId: _session, gameId: a_gameId }
+	} ).done(( a_response ) =>
+	{
+		$( "#roundList" ).html( "" );
 
+		if ( a_response.error == undefined )
+		{
+			var game = a_response.game;
+
+			var playerTurnTemplate = "<div class='content'><i class='hand :action icon'></i> " +
+				"You played :action</div>";
+			var opponentTurnTemplate = "<div class='content'><i class='hand :action icon'></i> " +
+				"Opponent played :action</div>";
+
+
+			// Sort list of rounds by their last modify date
+			game.rounds = game.rounds.sort( SortRounds );
+
+			// Fill the previous moves list
+			for ( var i = 0; i < game.rounds.length; ++i )
+			{
+				if ( game.rounds[ i ] == null )
+					continue;
+
+				var roundObj = $( "<div class='item'></div>" );
+
+				// Make elements for each turn
+				for ( var k = 0; k < game.rounds[ i ].turns.length; ++k )
+				{
+					var turn = game.rounds[ i ].turns[ k ];
+
+					if ( turn.userId == _userid )
+						roundObj.append( $( playerTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
+					else
+						roundObj.append( $( opponentTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
+				}
+
+				$( "#roundList" ).append( roundObj );
+			}
+
+			if ( game.winnerId != 0 )
+			{
+				SetupGameArea();
+				_currentGame = game.gameId;
+			}
+			else
+			{
+				$( "#gameArea button" ).addClass( "disabled" );
+				_currentGame = undefined;
+			}
+		}
+		else
+		{
+
+		}
+	} ).fail(( a_err ) =>
+	{
+		$( this ).removeClass( "loading" );
+
+		console.warn( "Could not connect to API" );
+		console.warn( a_err );
+	} );
 }
 
+
+function SetupGameArea()
+{
+	$( "#gameArea button" ).removeClass( "disabled" );
+}
+
+
+function SubmitTurn( a_action )
+{
+	if ( _currentGame != undefined )
+		return;
+
+	$( "#gameArea button" ).addClass( "loading" );
+
+	$.ajax( {
+		url: "http://localhost:3000/api/submitTurn",
+		method: "post",
+		data: { sessionId: _session, gameid: _currentGame, action: a_action }
+	} ).done(( a_response ) =>
+	{
+		$( "#gameArea button" ).removeClass( "loading" );
+		$( "#gameArea button" ).addClass( "disabled" );
+
+		SetupActiveGames();
+	} ).fail(( a_err ) =>
+	{
+		$( "#gameArea button" ).removeClass( "loading" );
+
+		console.warn( "Could not connect to API" );
+		console.warn( a_err );
+	} );
+}
+
+
+function SortRounds( a, b )
+{
+	// Prevent breakages in case there's a null
+	// (null dates are set to epoch time)
+	if ( a == null )
+		a = { dateUpdated: null };
+	if ( b == null )
+		b = { dateUpdated: null };
+
+	var aDate = new Date( a.dateUpdated );
+	var bDate = new Date( b.dateUpdated );
+
+	if ( aDate < bDate )
+		return -1;
+	if ( aDate > bDate )
+		return 1;
+
+	return 0;
+}
 
 
 function timeSince( date )

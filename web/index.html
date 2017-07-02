@@ -66,8 +66,16 @@
 					</div>
 				</div>
 				<div class="six wide column" id="gameAreaContainer">
-					<div id="gameArea">
+					<div id="gameArea" class="ui center aligned container">
+						<h3 class="ui header" style="margin-top: 25px">Select your next move</h3>
 
+						<div class="ui buttons">
+							<button class="ui blue disabled button" onclick="SubmitTurn(0)"><i class="hand rock icon"></i> Rock</button>
+							<div class="or"></div>
+							<button class="ui violet disabled button" onclick="SubmitTurn(1)"><i class="hand paper icon"></i> Paper</button>
+							<div class="or"></div>
+							<button class="ui purple disabled button" onclick="SubmitTurn(2)"><i class="hand scissors icon"></i> Scissors</button>
+						</div>
 					</div>
 				</div>
 
