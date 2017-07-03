@@ -446,7 +446,31 @@ app.post( "/api/games", function ( a_req, a_res )
 // + gameId
 //
 // Returns game details and all rounds and turns for that game
-// TODO: return data summary
+// + games [
+//		+ gameId
+//		+ playerOneId
+//		+ playerTwoId
+//		+ lastUpdated
+//		+ timeStarted
+//		+ winnerId
+//		+ currentRoundId
+//		+ rounds [
+//			{
+//				+ roundId
+//				+ winnerId
+//				+ dateUpdated
+//				+ rows [
+//					{
+//						+ turnId
+//						+ roundId
+//						+ userId
+//						+ action
+//						+ dateAdded
+//					}
+//				]
+//			}
+//		]
+// ]
 app.post( "/api/game", function ( a_req, a_res )
 {
 	// TODO: Have the parameter checking be managed in a function
@@ -478,8 +502,6 @@ app.post( "/api/game", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
-			// TODO: check that user is allowed to pull data from specified game
-
 			logger.info( "User " + userId + " requested game info for game " + a_req.body.gameId );
 
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
@@ -489,6 +511,13 @@ app.post( "/api/game", function ( a_req, a_res )
 					if ( a_result.rows.length != 1 )
 					{
 						a_res.status( 400 ).send( { error: "Game not found." } );
+						return;
+					}
+
+					// Check that the user has access to the specified game
+					if ( a_result.rows[ 0 ].playerOneId != userId && a_result.rows[ 0 ].playerTwoId != userId )
+					{
+						a_res.status( 403 ).send( { error: "Permission deined." } );
 						return;
 					}
 
@@ -597,6 +626,13 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 			}, ( a_result ) =>
 				{
 					var game = a_result.rows[ 0 ];
+
+					// Check that the user has access to the specified game
+					if ( game.playerOneId != userId && game.playerTwoId != userId )
+					{
+						a_res.status( 403 ).send( { error: "Permission deined." } );
+						return;
+					}
 
 					// Check if game is already complete
 					if ( game.winnerId != 0 )
