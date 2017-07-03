@@ -2,6 +2,8 @@ var _session = undefined;
 var _userid = undefined;
 var _currentGame = undefined;
 
+var _searchingForGame = false;
+
 const ACTIONS = [
 	"rock",
 	"paper",
@@ -24,7 +26,7 @@ $( document ).ready( function ()
 	SetupActiveGames();
 
 	// Create main loop to get game updates regularly
-	setInterval( SetupActiveGames, UPDATE_INTERVAL );
+	setInterval( UpdateLoop, UPDATE_INTERVAL );
 
 } );
 
@@ -32,6 +34,13 @@ function Logout()
 {
 	document.cookie = "sessionid=";
 	window.location.href = "login.html";
+}
+
+function UpdateLoop()
+{
+	// Dpn't update if player is currently looking for a new game
+	if ( !_searchingForGame )
+		SetupActiveGames();
 }
 
 function SetupActiveGames()
@@ -345,7 +354,17 @@ function ShowUsers()
 		if ( a_response.error == undefined )
 		{
 			// Clear game list and add a "back" button
-			$( "#gamesList" ).html( "<button class='ui fluid mini button' onclick='SetupActiveGames()'>Back to games</button>" );
+			$( "#gamesList" ).html( "" );
+			var backButton = $( "<button class='ui fluid mini button'>Back to games</button>" );
+			backButton.on( "click", function ()
+			{
+				_searchingForGame = false;
+				SetupActiveGames();
+			} );
+
+			$( "#gamesList" ).append( backButton );
+
+			_searchingForGame = true;
 
 			for ( var i = 0; i < a_response.users.length; ++i )
 			{
@@ -355,6 +374,7 @@ function ShowUsers()
 
 				userObj.on( "click", function ()
 				{
+					_searchingForGame = false;
 					CreateGame( $( this ).data( "userid" ) );
 				} );
 
