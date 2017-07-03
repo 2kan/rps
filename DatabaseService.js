@@ -27,7 +27,7 @@ module.exports = class DatabaseService
 	{
 		this.dbCon.query( a_query, null, function ( a_err, a_rows )
 		{
-			if ( args.query.indexOf( "INSERT INTO" ) != -1 && a_err == undefined )
+			if ( a_query.indexOf( "INSERT INTO" ) != -1 && a_err == undefined )
 				a_callback( { id: a_rows.info.insertId } ); // Return ID of newly inserted row
 			else
 				a_callback( { err: a_err, rows: a_rows } ); // Return SQL output
