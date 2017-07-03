@@ -189,6 +189,124 @@ app.post( "/api/username", function ( a_req, a_res )
 } );
 
 
+// POST /api/users
+//
+// Required input
+// + sessionId (string)
+//
+// Returns list of users (limited to 50) who have logged in recently
+// + ok (bool)
+// + users [
+//		+ userId (number)
+//		+ username (string)
+// ]
+app.post( "/api/users", function ( a_req, a_res )
+{
+	// TODO: Have the parameter checking be managed in a function
+	var missingFields = GetMissingFields( a_req.body, [ "sessionId" ] );
+	if ( missingFields.length > 0 )
+	{
+		logger.verbose( "Attempted retrieval of games list from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	// Get the user ID from the submitted session ID
+	dbService.queryPrepared( "SELECT * FROM t_sessions WHERE hash = :sessionid", {
+		sessionid: a_req.body.sessionId
+	}, function ( a_result )
+		{
+			// Check if there were any errors or if more/less than one entry was returned
+			if ( a_result.err != undefined )
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+				return;
+			}
+			else if ( a_result.rows.length != 1 )
+			{
+				a_res.status( 400 ).send( { error: "Not authorised." } );
+				return;
+			}
+
+			var userId = a_result.rows[ 0 ].userId;
+
+			dbService.queryPrepared( "SELECT username, userId FROM t_users WHERE userId != :userId",
+				{ userId: userId }, function ( a_result )
+				{
+					a_res.send( { ok: true, users: a_result.rows } );
+				}
+			);
+		}
+	);
+} );
+
+
+// POST /api/createGame
+//
+// Required input
+// + sessionId (string)
+// + opponentId (number)
+//
+// Returns id of newly created game
+// + ok (bool)
+// + gameId (number)
+app.post( "/api/createGame", function ( a_req, a_res )
+{
+	// TODO: Have the parameter checking be managed in a function
+	var missingFields = GetMissingFields( a_req.body, [ "sessionId", "opponentId" ] );
+	if ( missingFields.length > 0 )
+	{
+		logger.verbose( "Attempted creation of game from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	// Get the user ID from the submitted session ID
+	dbService.queryPrepared( "SELECT * FROM t_sessions WHERE hash = :sessionid", {
+		sessionid: a_req.body.sessionId
+	}, function ( a_result )
+		{
+			// Check if there were any errors or if more/less than one entry was returned
+			if ( a_result.err != undefined )
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+				return;
+			}
+			else if ( a_result.rows.length != 1 )
+			{
+				a_res.status( 400 ).send( { error: "Not authorised." } );
+				return;
+			}
+
+			var userId = a_result.rows[ 0 ].userId;
+			var opponentId = a_req.body.opponentId;
+
+			logger.verbose( "Creating game for player ID %s against opponent ID %s", userId, opponentId );
+
+			dbService.UserIdExists( opponentId, function ( a_result )
+			{
+				if ( a_result.err != undefined )
+				{
+					a_res.status( 500 ).send( { error: a_result.err } );
+					return;
+				}
+
+				dbService.queryPrepared( "INSERT INTO t_games " +
+					"(playerOneId, playerTwoId) VALUES (:userId, :opponentId)",
+					{ userId: userId, opponentId: opponentId },
+					function ( a_result )
+					{
+						a_res.send( { ok: true, gameId: a_result.id } );
+					}
+				);
+			} );
+		}
+	);
+} );
+
+
 
 // POST /api/games
 //
@@ -254,6 +372,7 @@ app.post( "/api/games", function ( a_req, a_res )
 					};
 
 					var gamesLoaded = 0;
+					var roundsLoaded = 0;
 					for ( var i = 0; i < a_result.rows.length; ++i )
 					{
 						var game = a_result.rows[ i ];
@@ -265,7 +384,7 @@ app.post( "/api/games", function ( a_req, a_res )
 							{
 
 								dbService.queryPrepared( "SELECT playerOneTurnId, playerTwoTurnId FROM t_rounds WHERE roundId = :roundId", {
-									roundId: a_result.rows[ gamesLoaded ].currentRoundId
+									roundId: a_result.rows[ roundsLoaded ].currentRoundId
 								}, ( a_roundResult ) =>
 									{
 										var thisGame = a_result.rows[ gamesLoaded ];
@@ -296,6 +415,8 @@ app.post( "/api/games", function ( a_req, a_res )
 										}
 									}
 								);
+
+								++roundsLoaded;
 							}
 						);
 					}
@@ -373,34 +494,43 @@ app.post( "/api/game", function ( a_req, a_res )
 						rounds: []
 					};
 
-					dbService.queryPrepared( "SELECT * FROM t_rounds WHERE gameId = :gameid", { gameid: game.gameId },
-						( a_roundResult ) =>
-						{
-
-							var roundsComplete = 0;
-							for ( var i = 0; i < a_roundResult.rows.length; ++i )
+					// Check that this game is in progress
+					if ( game.currentRoundId != null )
+					{
+						dbService.queryPrepared( "SELECT * FROM t_rounds WHERE gameId = :gameid", { gameid: game.gameId },
+							( a_roundResult ) =>
 							{
-								var round = a_roundResult.rows[ i ];
 
-								res.rounds[ i ] = {
-									roundId: round.roundId,
-									winnerId: round.winnerId,
-									dateUpdated: round.dateUpdated
-								}
-
-								GetTurns( round.roundId, i, ( a_index, a_turns ) =>
+								var roundsComplete = 0;
+								for ( var i = 0; i < a_roundResult.rows.length; ++i )
 								{
-									res.rounds[ a_index ].turns = a_turns;
-									++roundsComplete;
+									var round = a_roundResult.rows[ i ];
 
-									if ( roundsComplete == a_roundResult.rows.length )
-									{
-										a_res.send( { ok: true, game: res } );
+									res.rounds[ i ] = {
+										roundId: round.roundId,
+										winnerId: round.winnerId,
+										dateUpdated: round.dateUpdated
 									}
-								} );
+
+									GetTurns( round.roundId, i, ( a_index, a_turns ) =>
+									{
+										res.rounds[ a_index ].turns = a_turns;
+										++roundsComplete;
+
+										if ( roundsComplete == a_roundResult.rows.length )
+										{
+											a_res.send( { ok: true, game: res } );
+										}
+									} );
+								}
 							}
-						}
-					);
+						);
+					}
+					else
+					{
+						// This is a new game, send empty data
+						a_res.send( { ok: true, game: res } );
+					}
 				} // One hell of a scope pyramid
 			); // Thanks node.js
 		}

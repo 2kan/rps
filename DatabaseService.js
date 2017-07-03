@@ -46,4 +46,16 @@ module.exports = class DatabaseService
 				a_callback( { err: a_err, rows: a_rows } ); // Return SQL output
 		} );
 	}
+
+	// Checks if a given user ID exists in the database
+	// Callback parameters: {err (error object), exists (bool)}
+	UserIdExists( a_userId, a_callback )
+	{
+		this.queryPrepared( "SELECT * FROM t_users WHERE userId = :userId", { userId: a_userId },
+			function ( a_response )
+			{
+				a_callback( { err: a_response.err, exists: a_response.rows.length == 1 } );
+			}
+		);
+	}
 }
