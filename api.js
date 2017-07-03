@@ -419,6 +419,10 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 					dbService.queryPrepared( "SELECT * FROM t_rounds WHERE gameId = :gameid", { gameid: game.gameId },
 						( a_roundResult ) =>
 						{
+							var addedTurn = false;
+
+							// Check if there's a round that is still in progress
+							// If there is, add the turn
 							for ( var i = 0; i < a_roundResult.rows.length; ++i )
 							{
 								var round = a_roundResult.rows[ i ];
@@ -427,27 +431,107 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 								if ( round.winnerId != 0 )
 									continue;
 
-									// TODO
-									// - Check if the round is completed
-									// - If it is, add a new round if there is no game winner
-									// - If it's not, add a new turn and calculate the winner (if necessary)
+								// TODO
+								// - Check if the round is completed
+								// - If it is, add a new round if there is no game winner
+								// - If it's not, add a new turn and calculate the winner (if necessary)
+
+								addedTurn = true;
 
 								var playerNumber = ( game.playerOneId == userId ) ? "playerOne" : "playerTwo";
 								var opponentNumber = ( game.playerOneId != userId ) ? "playerOne" : "playerTwo";
 								var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
 
 								// Add a new turn
-								SubmitTurn( round.roundId, userId, a_req.body.action, ( a_index, a_turnResult ) =>
+								SubmitTurn( round.roundId, userId, a_req.body.action, ( a_addTurnResult ) =>
 								{
-									dbService.queryPrepared( "SELECT * FROM t_turns WHERE turnId = :opponentTurnId",
-										{ opponentTurnId: opponentId } );
+									// Get the opponent's turn to check who won
+									dbService.queryPrepared( "SELECT * FROM t_turns WHERE userId = :opponentId AND roundId = :roundId",
+										{ opponentId: opponentId, roundId: round.roundId },
+										( a_turnResult ) =>
+										{
+											var opponentAction = a_turnResult.rows[ 0 ].action;
 
-									dbService.queryPrepared( "UPDATE t_rounds SET " + playerNumber + "TurnId = :turnId, winnerId = :winnerId",
-										{ turnId: a_turnResult.id, winnerId: }
+											var winnerId = -1; // Set winner to -1 (a "draw") here so we don't
+											// have to check for a draw when finding the winner
+
+											switch ( a_req.body.action )
+											{
+												case 0: // Rock
+													if ( opponentAction == 2 ) // Scissors
+														winnerId = userId;
+													if ( opponentAction == 1 ) // Paper
+														winnerId = opponentId;
+													break;
+
+												case 1: // Paper
+													if ( opponentAction == 0 ) // Rock
+														winnerId = userId;
+													if ( opponentAction == 2 ) // Scissors
+														winnerId = opponentId;
+													break;
+
+												case 2: // Scissors
+													if ( opponentAction == 1 ) // Paper
+														winnerId = userId;
+													if ( opponentAction == 0 ) // Rock
+														winnerId = opponentId;
+													break;
+											}
+
+											// Check if there's a game winner
+											var playerWins = GetWinsFromRounds( userId, a_roundResult.rows );
+											var opponentWins = GetWinsFromRounds( opponentId, a_roundResult.rows );
+
+											if ( winnerId == userId )
+												++playerWins;
+											if ( winnerId == opponentId )
+												++opponentWins;
+
+											if ( playerWins >= 3 || opponentWins >= 3 )
+											{
+												// There's a winner, update db
+												dbService.queryPrepared( "UPDATE t_games SET winnerId = :winnerId WHERE gameId = :gameId",
+													{ winnerId: winnerId, gameId: game.gameId },
+													function ( a_result ) { }
+												);
+											}
+
+											dbService.queryPrepared( "UPDATE t_rounds SET " + playerNumber + "TurnId = :turnId, winnerId = :winnerId WHERE roundId = :roundId",
+												{ turnId: a_turnResult.id, winnerId: winnerId, roundId: round.roundId },
+												function ( a_result )
+												{
+													a_res.send( { ok: true } );
+													return;
+												}
+											);
+										}
+									);
 								} );
 
 								// Only one turn should be updated, so end the loop here
 								break;
+							}
+
+							// Check if the turn was added already (this happens when 
+							// there was a turn in progress)
+							if ( !addedTurn )
+							{
+								// Turn hasn't been added, create a new round and add the player's turn
+								StartNewRound( game.gameId, ( a_roundResult ) =>
+								{
+									SubmitTurn( round.roundId, userId, a_req.body.action, ( a_addTurnResult ) =>
+									{
+										dbService.queryPrepared( "UPDATE t_rounds SET playerOneTurnId = :turnId WHERE roundId = :roundId",
+											{ turnId: a_addTurnResult.id, roundId: round.roundId },
+											function ( a_result )
+											{
+												a_res.send( { ok: true } );
+												return;
+											}
+										);
+									} );
+								} );
 							}
 						}
 					);
@@ -524,7 +608,7 @@ function GetTurns( a_roundId, a_responseIndex, a_callback )
 }
 
 
-function SubmitTurn( a_round, a_userId, a_action, a_index, a_callback )
+function SubmitTurn( a_round, a_userId, a_action, a_callback )
 {
 	// Add new turn
 	dbService.queryPrepared( "INSERT INTO t_turns " +
@@ -532,7 +616,39 @@ function SubmitTurn( a_round, a_userId, a_action, a_index, a_callback )
 		{ roundId: a_round, userId: a_userId, action: a_action },
 		( a_turnResult ) =>
 		{
-			a_callback( a_index, a_turnResult );
+			a_callback( a_turnResult );
 		}
 	);
+}
+
+function StartNewRound( a_gameId, a_callback )
+{
+	// Create round
+	dbService.queryPrepared( "INSERT INTO t_rounds (gameId) VALUES (:gameId)",
+		{ gameId: a_gameId },
+		( a_roundResult ) =>
+		{
+			// Update game record
+			dbService.queryPrepared( "UPDATE t_games SET currentRoundId = :roundId AND roundCount = roundCount + 1 WHERE gameId = :gameId",
+				{ roundId: a_roundResult.id, gameId: a_gameId },
+				( a_gameResult ) =>
+				{
+					a_callback( a_roundResult.id );
+				}
+			);
+		}
+	);
+}
+
+
+function GetWinsFromRounds( a_userId, a_roundsDBRows )
+{
+	var wins = 0;
+	for ( var i = 0; i < a_roundsDBRows; ++i )
+	{
+		if ( a_roundsDBRows[ i ].winnerId == a_userId )
+			++wins;
+	}
+
+	return wins;
 }
