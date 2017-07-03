@@ -150,6 +150,45 @@ app.post( "/api/register", function ( a_req, a_res )
 } );
 
 
+// POST /api/username
+//
+// Required input
+// + username (string)
+//
+// Returns ok=true if username is not in use, ok=false if username is in use
+// + ok (bool)
+app.post( "/api/username", function ( a_req, a_res )
+{
+	var missingFields = GetMissingFields( a_req.body, [ "username" ] );
+	if ( missingFields.length > 0 )
+	{
+		logger.verbose( "Attempted username validation from " + a_req.ip + " with missing fields: " + missingFields.join( ", " ) );
+
+		a_res.status( 400 ).send( { error: "Missing fields: " + missingFields.join( ", " ) } );
+		return;
+	}
+
+	logger.verbose( "Check on username '" + a_req.body.username + "' from IP " + a_req.ip );
+	
+	dbService.queryPrepared( "SELECT * FROM t_users WHERE username = :username",
+		{ username: a_req.body.username },
+		function ( a_result )
+		{
+			if ( a_result.err == undefined )
+			{
+				// User added successfully
+				a_res.send( { ok: a_result.rows.length == 0 } );
+			}
+			else
+			{
+				a_res.status( 500 ).send( { error: a_result.err } );
+			}
+		}
+	);
+
+} );
+
+
 
 // POST /api/games
 //
