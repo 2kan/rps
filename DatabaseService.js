@@ -9,14 +9,8 @@ module.exports = class DatabaseService
 	{
 		if ( a_dbObj == undefined )
 		{
-			a_dbObj = {
-				host: "127.0.0.1",
-				user: "root",
-				password: "Md#]+^L}#)Xn(m~94R",
-				db: "rps"
-			};
+			a_dbObj = require("./dbconfig.json");
 		}
-
 
 		// Connect to db
 		logger.info( "Establishing connection to database..." );
