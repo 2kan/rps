@@ -163,6 +163,10 @@ function SetupGameArea()
 	//						  jquery vomit
 	var waitingForPlayer = $( $( "#roundList .item" )[ 0 ] ).find( ".opponent" ).length == 1;
 
+	$( "#gameControls" ).css( "display", "" );
+	$( "#gameBlank" ).css( "display", "none" );
+	$( "#roundListContainer" ).css( "display", "" );
+
 	if ( waitingForPlayer )
 	{
 		$( "#gameArea .button" ).removeClass( "disabled" );
@@ -237,6 +241,7 @@ function SubmitTurn( a_action )
 		$( "#gameArea button" ).addClass( "disabled" );
 
 		SetupActiveGames();
+		ShowGame( _currentGame );
 	} ).fail(( a_err ) =>
 	{
 		$( "#gameArea button" ).removeClass( "loading" );
@@ -265,38 +270,4 @@ function SortRounds( a, b )
 		return -1;
 
 	return 0;
-}
-
-
-function timeSince( date )
-{
-	var seconds = Math.floor(( new Date() - new Date( date ) ) / 1000 );
-
-	var interval = Math.floor( seconds / 31536000 );
-
-	if ( interval > 1 )
-	{
-		return interval + " years";
-	}
-	interval = Math.floor( seconds / 2592000 );
-	if ( interval > 1 )
-	{
-		return interval + " months";
-	}
-	interval = Math.floor( seconds / 86400 );
-	if ( interval > 1 )
-	{
-		return interval + " days";
-	}
-	interval = Math.floor( seconds / 3600 );
-	if ( interval > 1 )
-	{
-		return interval + " hours";
-	}
-	interval = Math.floor( seconds / 60 );
-	if ( interval > 1 )
-	{
-		return interval + " minutes";
-	}
-	return Math.floor( seconds ) + " seconds";
 }
