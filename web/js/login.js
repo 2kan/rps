@@ -15,7 +15,7 @@ function Login()
 	var pass = $( "#pass" ).val();
 
 	$.ajax( {
-		url: "http://localhost:3000/api/login",
+		url: SERVER_ADDR + "api/login",
 		method: "post",
 		data: { user: user, pass: pass }
 	} ).done(( a_response ) =>
@@ -57,7 +57,7 @@ function SetupRegisterForm()
 
 		$.ajax( {
 			async: false,
-			url: "http://localhost:3000/api/username",
+			url: SERVER_ADDR + "api/username",
 			method: "post",
 			data: { username: a_value },
 			success: ( a_response ) =>
@@ -69,11 +69,6 @@ function SetupRegisterForm()
 
 		return valid;
 	};
-
-	$( "#registerForm" ).on( "submit", function ()
-	{
-		console.log( "submit" );
-	} );
 
 	// Setup validation
 	$( "#registerForm" ).form( {
@@ -128,7 +123,7 @@ function SetupRegisterForm()
 
 			// Send registration request over AJAX
 			$.ajax( {
-				url: "http://localhost:3000/api/register",
+				url: SERVER_ADDR + "api/register",
 				method: "post",
 				data: { user: user, pass: pass, email: email }
 			} ).done(( a_response ) =>

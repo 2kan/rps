@@ -54,6 +54,17 @@
 	line-height: 18px;
 }
 
+#primaryMenu .icon
+{
+	float: left;
+	font-size: 28px;
+}
+
+#primaryMenu p
+{
+	margin-bottom: 10px;
+}
+
 
 /* Semantic UI overrides
  * TODO: edit the Semantic UI LESS scripts to do this

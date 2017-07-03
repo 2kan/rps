@@ -23,6 +23,9 @@ $( document ).ready( function ()
 
 	SetupActiveGames();
 
+	// Create main loop to get game updates regularly
+	setInterval( SetupActiveGames, UPDATE_INTERVAL );
+
 } );
 
 function Logout()
@@ -43,7 +46,7 @@ function SetupActiveGames()
 		"</div>";
 
 	$.ajax( {
-		url: "http://localhost:3000/api/games",
+		url: SERVER_ADDR + "api/games",
 		method: "post",
 		data: { sessionId: _session }
 	} ).done(( a_response ) =>
@@ -53,6 +56,12 @@ function SetupActiveGames()
 			// Clear games list
 			$( "#gamesList" ).html( "" );
 			var gamesPending = 0;
+
+			// Add header for active games
+			$( "#gamesList" ).append( $( "<div class='item' id='activeGames'><div class='header'>Active games</div></div>" ) );
+			// Add header for completed games
+			$( "#gamesList" ).append( $( "<div class='item' id='completedGames'><div class='header'>Completed games</div></div>" ) );
+
 
 			// Sort games by last modified date
 			var games = a_response.games.sort( SortGames );
@@ -84,6 +93,14 @@ function SetupActiveGames()
 
 					++gamesPending;
 					game.find( "i" ).addClass( "outline" );
+
+					$( "#activeGames" ).after( game );
+				}
+				else if ( games[ i ].winnerId == 0 )
+				{
+					// Game is waiting on opponent
+
+					$( "#activeGames" ).after( game );
 				}
 				else if ( games[ i ].winnerId != 0 )
 				{
@@ -104,10 +121,8 @@ function SetupActiveGames()
 						++losses;
 					}
 
-
+					$( "#completedGames" ).after( game );
 				}
-
-				$( "#gamesList" ).append( game );
 			}
 
 			if ( gamesPending > 0 )
@@ -145,7 +160,7 @@ function SetupActiveGames()
 function ShowGame( a_gameId )
 {
 	$.ajax( {
-		url: "http://localhost:3000/api/game",
+		url: SERVER_ADDR + "api/game",
 		method: "post",
 		data: { sessionId: _session, gameId: a_gameId }
 	} ).done(( a_response ) =>
@@ -205,6 +220,9 @@ function SetupGameArea()
 	{
 		// Yep, this is a new game and it's waiting for the player to submit their move
 		waitingForPlayer = true;
+
+		// Add UI juice
+		$( "#roundList" ).append( "<div class='item'><div class='content'>New game! Take your turn!</div></div>" );
 	}
 
 	$( "#extraText" ).css( "display", "none" );
@@ -285,7 +303,7 @@ function SubmitTurn( a_action )
 	$( "#gameArea button" ).addClass( "loading" );
 
 	$.ajax( {
-		url: "http://localhost:3000/api/submitTurn",
+		url: SERVER_ADDR + "api/submitTurn",
 		method: "post",
 		data: { sessionId: _session, gameId: _currentGame, action: a_action }
 	} ).done(( a_response ) =>
@@ -319,7 +337,7 @@ function ShowUsers()
 	$( "#showUsersButton" ).addClass( "loading" );
 
 	$.ajax( {
-		url: "http://localhost:3000/api/users",
+		url: SERVER_ADDR + "api/users",
 		method: "post",
 		data: { sessionId: _session }
 	} ).done(( a_response ) =>
@@ -362,7 +380,7 @@ function ShowUsers()
 function CreateGame( a_opponentId )
 {
 	$.ajax( {
-		url: "http://localhost:3000/api/createGame",
+		url: SERVER_ADDR + "api/createGame",
 		method: "post",
 		data: { sessionId: _session, opponentId: a_opponentId }
 	} ).done(( a_response ) =>
