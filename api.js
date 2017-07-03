@@ -226,6 +226,7 @@ app.post( "/api/games", function ( a_req, a_res )
 									roundId: game.currentRoundId
 								}, ( a_roundResult ) =>
 									{
+
 										res.games[ res.games.length ] = {
 											gameId: game.gameId,
 											timeStarted: game.dateAdded,
@@ -300,6 +301,10 @@ app.post( "/api/game", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
+			// TODO: check that user is allowed to pull data from specified game
+
+			logger.info( "User " + userId + " requested game info for game " + a_req.body.gameId );
+
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
 				gameid: a_req.body.gameId
 			}, function ( a_result )
@@ -326,7 +331,6 @@ app.post( "/api/game", function ( a_req, a_res )
 					dbService.queryPrepared( "SELECT * FROM t_rounds WHERE gameId = :gameid", { gameid: game.gameId },
 						( a_roundResult ) =>
 						{
-							console.log( a_roundResult.rows );
 
 							var roundsComplete = 0;
 							for ( var i = 0; i < a_roundResult.rows.length; ++i )
@@ -400,6 +404,8 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
+			logger.info( "User" + userId + " submitting action " + a_req.body.action + " for game " + a_req.body.gameId );
+
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
 				gameid: a_req.body.gameId
 			}, ( a_result ) =>
@@ -421,6 +427,10 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 						{
 							var addedTurn = false;
 
+							var playerNumber = ( game.playerOneId == userId ) ? "playerOne" : "playerTwo";
+							var opponentNumber = ( game.playerOneId != userId ) ? "playerOne" : "playerTwo";
+							var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
+
 							// Check if there's a round that is still in progress
 							// If there is, add the turn
 							for ( var i = 0; i < a_roundResult.rows.length; ++i )
@@ -437,10 +447,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 								// - If it's not, add a new turn and calculate the winner (if necessary)
 
 								addedTurn = true;
-
-								var playerNumber = ( game.playerOneId == userId ) ? "playerOne" : "playerTwo";
-								var opponentNumber = ( game.playerOneId != userId ) ? "playerOne" : "playerTwo";
-								var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
+								logger.info( "Round is currently in progress, submitting turn" );
 
 								// Add a new turn
 								SubmitTurn( round.roundId, userId, a_req.body.action, ( a_addTurnResult ) =>
@@ -488,8 +495,11 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 											if ( winnerId == opponentId )
 												++opponentWins;
 
+											logger.info( "Checking for game winner. Player: " + playerWins + ", opponent: " + opponentWins );
+
 											if ( playerWins >= 3 || opponentWins >= 3 )
 											{
+												logger.info( "A victor has been decided" );
 												// There's a winner, update db
 												dbService.queryPrepared( "UPDATE t_games SET winnerId = :winnerId WHERE gameId = :gameId",
 													{ winnerId: winnerId, gameId: game.gameId },
@@ -497,6 +507,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 												);
 											}
 
+											logger.info( "Updating round results" );
 											dbService.queryPrepared( "UPDATE t_rounds SET " + playerNumber + "TurnId = :turnId, winnerId = :winnerId WHERE roundId = :roundId",
 												{ turnId: a_turnResult.id, winnerId: winnerId, roundId: round.roundId },
 												function ( a_result )
@@ -517,13 +528,16 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 							// there was a turn in progress)
 							if ( !addedTurn )
 							{
+								logger.info( "No unfinished rounds found, adding new one" );
+
 								// Turn hasn't been added, create a new round and add the player's turn
 								StartNewRound( game.gameId, ( a_roundResult ) =>
 								{
-									SubmitTurn( round.roundId, userId, a_req.body.action, ( a_addTurnResult ) =>
+
+									SubmitTurn( a_roundResult.id, userId, a_req.body.action, ( a_addTurnResult ) =>
 									{
-										dbService.queryPrepared( "UPDATE t_rounds SET playerOneTurnId = :turnId WHERE roundId = :roundId",
-											{ turnId: a_addTurnResult.id, roundId: round.roundId },
+										dbService.queryPrepared( "UPDATE t_rounds SET " + playerNumber + "TurnId = :turnId WHERE roundId = :roundId",
+											{ turnId: a_addTurnResult.id, roundId: a_roundResult.id },
 											function ( a_result )
 											{
 												a_res.send( { ok: true } );
@@ -628,12 +642,13 @@ function StartNewRound( a_gameId, a_callback )
 		{ gameId: a_gameId },
 		( a_roundResult ) =>
 		{
+			logger.info( "Added new round with ID " + a_roundResult.id );
 			// Update game record
-			dbService.queryPrepared( "UPDATE t_games SET currentRoundId = :roundId AND roundCount = roundCount + 1 WHERE gameId = :gameId",
+			dbService.queryPrepared( "UPDATE t_games SET currentRoundId = :roundId, roundCount = roundCount + 1 WHERE gameId = :gameId",
 				{ roundId: a_roundResult.id, gameId: a_gameId },
 				( a_gameResult ) =>
 				{
-					a_callback( a_roundResult.id );
+					a_callback( a_roundResult );
 				}
 			);
 		}
