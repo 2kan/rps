@@ -127,52 +127,11 @@ function ShowGame( a_gameId )
 		{
 			var game = a_response.game;
 
-			var playerTurnTemplate = "<div class='content player'><i class='hand :action icon'></i> " +
-				"You played :action</div>";
-			var opponentTurnTemplate = "<div class='content opponent'><i class='hand :action icon'></i> " +
-				"Opponent played :action</div>";
-
-
 			// Sort list of rounds by their last modify date
 			game.rounds = game.rounds.sort( SortRounds );
 
 			// Fill the previous moves list
-			for ( var i = 0; i < game.rounds.length; ++i )
-			{
-				if ( game.rounds[ i ] == null )
-					continue;
-
-				var roundObj = $( "<div class='item'></div>" );
-
-				// Make elements for each turn
-				for ( var k = 0; k < game.rounds[ i ].turns.length; ++k )
-				{
-					var turn = game.rounds[ i ].turns[ k ];
-
-					if ( turn.userId == _userid )
-						roundObj.append( $( playerTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
-					else
-						roundObj.append( $( opponentTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
-				}
-
-				// Check if ONLY the opponent has played their turn so we can hide their action
-				var turns = roundObj.find( ".content" );
-				if ( turns.length == 1 )
-				{
-					// Check that the only turn is the opponent's
-					if ( turns.hasClass( "opponent" ) )
-					{
-						// Replace the icon
-						$( turns ).find( "i" ).removeClass( "hand" );
-						$( turns ).find( "i" ).addClass( "help" );
-
-						// Replace the text
-						$( turns ).html( $( turns ).html().replace( " rock", "..." ).replace( " paper", "..." ).replace( " scissors", "..." ) );
-					}
-				}
-				// help
-				$( "#roundList" ).append( roundObj );
-			}
+			SetupRoundHistory( game );
 
 			if ( game.winnerId == 0 )
 			{
@@ -201,13 +160,69 @@ function ShowGame( a_gameId )
 
 function SetupGameArea()
 {
-	$( "#gameArea .button" ).removeClass( "disabled" );
+	//						  jquery vomit
+	var waitingForPlayer = $( $( "#roundList .item" )[ 0 ] ).find( ".opponent" ).length == 1;
+
+	if ( waitingForPlayer )
+	{
+		$( "#gameArea .button" ).removeClass( "disabled" );
+		$( "#waitingText" ).css( "display", "none" );
+	}
+	else
+	{
+		$( "#waitingText" ).css( "display", "" );
+	}
+}
+
+function SetupRoundHistory( a_gameObj )
+{
+	var playerTurnTemplate = "<div class='content player'><i class='hand :action icon'></i> " +
+		"You played :action</div>";
+	var opponentTurnTemplate = "<div class='content opponent'><i class='hand :action icon'></i> " +
+		"Opponent played :action</div>";
+
+	for ( var i = 0; i < a_gameObj.rounds.length; ++i )
+	{
+		if ( a_gameObj.rounds[ i ] == null )
+			continue;
+
+		var roundObj = $( "<div class='item'></div>" );
+
+		// Make elements for each turn
+		for ( var k = 0; k < a_gameObj.rounds[ i ].turns.length; ++k )
+		{
+			var turn = a_gameObj.rounds[ i ].turns[ k ];
+
+			if ( turn.userId == _userid )
+				roundObj.append( $( playerTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
+			else
+				roundObj.append( $( opponentTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
+		}
+
+		// Check if ONLY the opponent has played their turn so we can hide their action
+		var turns = roundObj.find( ".content" );
+		if ( turns.length == 1 )
+		{
+			// Check that the only turn is the opponent's
+			if ( turns.hasClass( "opponent" ) )
+			{
+				// Replace the icon
+				$( turns ).find( "i" ).removeClass( "hand" );
+				$( turns ).find( "i" ).addClass( "help" );
+
+				// Replace the text
+				$( turns ).html( $( turns ).html().replace( " rock", "..." ).replace( " paper", "..." ).replace( " scissors", "..." ) );
+			}
+		}
+
+		$( "#roundList" ).append( roundObj );
+	}
 }
 
 
 function SubmitTurn( a_action )
 {
-	if ( _currentGame != undefined )
+	if ( _currentGame == undefined )
 		return;
 
 	$( "#gameArea button" ).addClass( "loading" );
@@ -215,7 +230,7 @@ function SubmitTurn( a_action )
 	$.ajax( {
 		url: "http://localhost:3000/api/submitTurn",
 		method: "post",
-		data: { sessionId: _session, gameid: _currentGame, action: a_action }
+		data: { sessionId: _session, gameId: _currentGame, action: a_action }
 	} ).done(( a_response ) =>
 	{
 		$( "#gameArea button" ).removeClass( "loading" );
