@@ -83,6 +83,7 @@ app.post( "/api/login", function ( a_req, a_res )
 				}
 				else
 				{
+					logger.verbose( "User deined access to /api/login (invalid credentials: %j).", { username: a_req.body.user } );
 					a_res.status( 400 ).send( { error: "Credentials invalid." } );
 				}
 			}
@@ -225,6 +226,7 @@ app.post( "/api/users", function ( a_req, a_res )
 			}
 			else if ( a_result.rows.length != 1 )
 			{
+				logger.verbose( "User deined access to /api/users (duplicate session: %s).", a_req.body.sessionId );
 				a_res.status( 400 ).send( { error: "Not authorised." } );
 				return;
 			}
@@ -276,6 +278,7 @@ app.post( "/api/createGame", function ( a_req, a_res )
 			}
 			else if ( a_result.rows.length != 1 )
 			{
+				logger.verbose( "User deined access to /api/createGame (duplicate session: %s).", a_req.body.sessionId );
 				a_res.status( 400 ).send( { error: "Not authorised." } );
 				return;
 			}
@@ -354,6 +357,7 @@ app.post( "/api/games", function ( a_req, a_res )
 			}
 			else if ( a_result.rows.length != 1 )
 			{
+				logger.verbose( "User deined access to /api/games (duplicate session: %s).", a_req.body.sessionId );
 				a_res.status( 400 ).send( { error: "Not authorised." } );
 				return;
 			}
@@ -498,6 +502,7 @@ app.post( "/api/game", function ( a_req, a_res )
 			}
 			else if ( a_result.rows.length != 1 )
 			{
+				logger.verbose( "User deined access to /api/game (duplicate session: %s).", a_req.body.sessionId );
 				a_res.status( 400 ).send( { error: "Not authorised." } );
 				return;
 			}
@@ -512,6 +517,7 @@ app.post( "/api/game", function ( a_req, a_res )
 				{
 					if ( a_result.rows.length != 1 )
 					{
+						logger.verbose( "User denied access to /api/game (duplicate game ID: %s).", a_req.body.gameId );
 						a_res.status( 400 ).send( { error: "Game not found." } );
 						return;
 					}
@@ -519,6 +525,7 @@ app.post( "/api/game", function ( a_req, a_res )
 					// Check that the user has access to the specified game
 					if ( a_result.rows[ 0 ].playerOneId != userId && a_result.rows[ 0 ].playerTwoId != userId )
 					{
+						logger.verbose( "User denied access to /api/game (attempted access to data outside of their access: %j)", { gameId: a_req.body.gameId, userId: userId } );
 						a_res.status( 403 ).send( { error: "Permission deined." } );
 						return;
 					}
@@ -615,6 +622,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 			}
 			else if ( a_result.rows.length != 1 )
 			{
+				logger.verbose( "User deined access to /api/submitTurn (duplicate session: %s).", a_req.body.sessionId );
 				a_res.status( 400 ).send( { error: "Not authorised." } );
 				return;
 			}
@@ -632,6 +640,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 					// Check that the user has access to the specified game
 					if ( game.playerOneId != userId && game.playerTwoId != userId )
 					{
+						logger.verbose( "User denied access to /api/submitTurn (attempted access to data outside of their access: %j)", { gameId: a_req.body.gameId, userId: userId } );
 						a_res.status( 403 ).send( { error: "Permission deined." } );
 						return;
 					}
@@ -639,6 +648,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 					// Check if game is already complete
 					if ( game.winnerId != 0 )
 					{
+						logger.verbose( "User deined access to /api/submitTurn (game already finished: %s).", a_req.body.gameId );
 						a_res.status( 400 ).send( { error: "Game already finished." } );
 					}
 
