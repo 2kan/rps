@@ -120,16 +120,13 @@ function SetupRegisterForm()
 		},
 		onSuccess: function ( a_event )
 		{
-			// Add loading css
-			// Submit form
-			// log-in user
-
 			$( "#registerForm" ).addClass( "loading" );
 
 			var user = $( "#userReg" ).val();
 			var pass = $( "#passReg" ).val();
 			var email = $( "#emailReg" ).val();
 
+			// Send registration request over AJAX
 			$.ajax( {
 				url: "http://localhost:3000/api/register",
 				method: "post",
@@ -146,7 +143,12 @@ function SetupRegisterForm()
 				}
 				else
 				{
+					$( "#registerForm" ).removeClass( "loading" );
+					$( "#userReg" ).val( "" );
+					$( "#passReg" ).val( "" );
+					$( "#emailReg" ).val( "" );
 
+					$( "#registerForm .error" ).text( "Error during registration. Please contact site owner. " + new Date() );
 				}
 			} ).fail(( a_err ) =>
 			{
