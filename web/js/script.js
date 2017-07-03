@@ -54,14 +54,22 @@ function SetupActiveGames()
 			$( "#gamesList" ).html( "" );
 			var gamesPending = 0;
 
-			var games = a_response.games; // to improve readability
+			// Sort games by last modified date
+			var games = a_response.games.sort(SortGames);
+
+			var wins = 0;
+			var losses = 0;
+
+			// Create the list element for each game
 			for ( var i = 0; i < games.length; ++i )
 			{
+				// Form HTML from template
 				var game = $( template
 					.replace( ":gameid", games[ i ].gameId )
 					.replace( ":opponent", games[ i ].opponentName )
 					.replace( ":lastUpdated", timeSince( games[ i ].lastUpdated ) + " ago" ) );
 
+				// Add action to show the game on click
 				game.on( "click", function ()
 				{
 					ShowGame( $( this ).data( "gameid" ) );
@@ -71,19 +79,29 @@ function SetupActiveGames()
 				if ( ( games[ i ].playerOneId == _userid && games[ i ].currentRound.playerOneTurnId == null ) ||
 					( games[ i ].playerTwoId == _userid && games[ i ].currentRound.playerTwoTurnId == null ) )
 				{
+					// Game is waiting on player's turn
+
 					++gamesPending;
 					game.find( "i" ).addClass( "outline" );
 				}
 				else if ( games[ i ].winnerId != 0 )
 				{
+					// Game has been completed
+
 					game.find( "i" ).removeClass( "send" );
 
 					if ( games[ i ].winnerId == _userid )
-						// Show trophy icon if the user won the round
+					{
+						// Show trophy icon if the user won the game
 						game.find( "i" ).addClass( "trophy" );
+						++wins;
+					}
 					else
+					{
 						// Show a frowny face if the user lost
 						game.find( "i" ).addClass( "frown" );
+						++losses;
+					}
 
 
 				}
@@ -100,6 +118,16 @@ function SetupActiveGames()
 			{
 				$( "#dashboardCounter" ).css( "display", "none" );
 			}
+
+			var statsTemplate = "<div class='ui grid'>" +
+				"<div class='eight wide column'>Wins<br />Losses<br />Total games</div>" +
+				"<div class='eight wide column'>:wins<br />:losses<br />:total";
+			//<p>Wins: :wins</p><p>Losses: :losses</p><p>Total games: :total</p>";
+
+			$( "#stats" ).html( statsTemplate
+				.replace( ":wins", wins )
+				.replace( ":losses", losses )
+				.replace( ":total", games.length ) );
 		}
 		else
 		{
@@ -132,16 +160,23 @@ function ShowGame( a_gameId )
 
 			// Fill the previous moves list
 			SetupRoundHistory( game );
+			SetupGameArea();
 
 			if ( game.winnerId == 0 )
 			{
-				SetupGameArea();
 				_currentGame = game.gameId;
 			}
 			else
 			{
 				$( "#gameArea button" ).addClass( "disabled" );
 				_currentGame = undefined;
+
+				$( "#extraText" ).css( "display", "" );
+				if ( game.winnerId == _userid )
+					$( "#extraText" ).text( "You won!" );
+				else
+					$( "#extraText" ).text( "You lost!" );
+
 			}
 		}
 		else
@@ -162,6 +197,8 @@ function SetupGameArea()
 {
 	//						  jquery vomit
 	var waitingForPlayer = $( $( "#roundList .item" )[ 0 ] ).find( ".opponent" ).length == 1;
+
+	$( "#extraText" ).css( "display", "none" );
 
 	$( "#gameControls" ).css( "display", "" );
 	$( "#gameBlank" ).css( "display", "none" );
@@ -196,11 +233,17 @@ function SetupRoundHistory( a_gameObj )
 		for ( var k = 0; k < a_gameObj.rounds[ i ].turns.length; ++k )
 		{
 			var turn = a_gameObj.rounds[ i ].turns[ k ];
+			var turnObj;
 
 			if ( turn.userId == _userid )
-				roundObj.append( $( playerTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
+				turnObj = $( playerTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) );
 			else
-				roundObj.append( $( opponentTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) ) );
+				turnObj = $( opponentTurnTemplate.replace( /:action/g, ACTIONS[ turn.action ] ) );
+
+			if ( a_gameObj.rounds[ i ].winnerId == turn.userId )
+				turnObj.addClass( "win" );
+
+			roundObj.append( turnObj );
 		}
 
 		// Check if ONLY the opponent has played their turn so we can hide their action
@@ -242,6 +285,7 @@ function SubmitTurn( a_action )
 
 		SetupActiveGames();
 		ShowGame( _currentGame );
+
 	} ).fail(( a_err ) =>
 	{
 		$( "#gameArea button" ).removeClass( "loading" );
@@ -263,6 +307,20 @@ function SortRounds( a, b )
 
 	var aDate = new Date( a.dateUpdated );
 	var bDate = new Date( b.dateUpdated );
+
+	if ( aDate < bDate )
+		return 1;
+	if ( aDate > bDate )
+		return -1;
+
+	return 0;
+}
+
+
+function SortGames( a, b )
+{
+	var aDate = new Date( a.lastUpdated );
+	var bDate = new Date( b.lastUpdated );
 
 	if ( aDate < bDate )
 		return 1;
