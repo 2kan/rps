@@ -242,6 +242,8 @@ app.post( "/api/games", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
+			logger.verbose( "User " + userId + " fetching games list" );
+
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE (t_games.playerOneId = :id OR t_games.playerTwoId = :id)", {
 				id: userId
 			}, function ( a_result )
@@ -251,9 +253,10 @@ app.post( "/api/games", function ( a_req, a_res )
 						games: [],
 					};
 
+					var gamesLoaded = 0;
 					for ( var i = 0; i < a_result.rows.length; ++i )
 					{
-						var game = a_result.rows[ 0 ];
+						var game = a_result.rows[ i ];
 						var opponentId = ( game.playerOneId == userId ) ? game.playerTwoId : game.playerOneId;
 
 						dbService.queryPrepared( "SELECT userid, username FROM t_users WHERE userid = :opponentid", {
@@ -262,29 +265,32 @@ app.post( "/api/games", function ( a_req, a_res )
 							{
 
 								dbService.queryPrepared( "SELECT playerOneTurnId, playerTwoTurnId FROM t_rounds WHERE roundId = :roundId", {
-									roundId: game.currentRoundId
+									roundId: a_result.rows[ gamesLoaded ].currentRoundId
 								}, ( a_roundResult ) =>
 									{
+										var thisGame = a_result.rows[ gamesLoaded ];
 
 										res.games[ res.games.length ] = {
-											gameId: game.gameId,
-											timeStarted: game.dateAdded,
-											lastUpdated: game.dateUpdated,
-											playerOneId: game.playerOneId,
-											playerTwoId: game.playerTwoId,
+											gameId: thisGame.gameId,
+											timeStarted: thisGame.dateAdded,
+											lastUpdated: thisGame.dateUpdated,
+											playerOneId: thisGame.playerOneId,
+											playerTwoId: thisGame.playerTwoId,
 											opponentName: a_opponentResult.rows[ 0 ].username,
 											opponentId: a_opponentResult.rows[ 0 ].userid,
-											winnerId: game.winnerId,
+											winnerId: thisGame.winnerId,
 											currentRound: {
-												roundId: game.currentRoundId,
+												roundId: thisGame.currentRoundId,
 												playerOneTurnId: a_roundResult.rows[ 0 ].playerOneTurnId,
 												playerTwoTurnId: a_roundResult.rows[ 0 ].playerTwoTurnId
 											}
 										};
 
+										++gamesLoaded;
+
 										// Because this is all done asynchronously, the below ensures
 										// that the response isn't sent until all games have been set
-										if ( i >= a_result.rows.length )
+										if ( gamesLoaded == a_result.rows.length )
 										{
 											a_res.send( { ok: true, games: res.games } );
 										}
@@ -496,34 +502,37 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 										{ opponentId: opponentId, roundId: round.roundId },
 										( a_turnResult ) =>
 										{
-											console.log(a_turnResult);
+											console.log( a_turnResult );
 											var opponentAction = a_turnResult.rows[ 0 ].action;
 
 											var winnerId = -1; // Set winner to -1 (a "draw") here so we don't
 											// have to check for a draw when finding the winner
 
+											logger.verbose( "Resolving winner. PlayerOne %j, PlayerTwo %j", { id: userId, action: a_req.body.action }, { id: opponentId, action: opponentAction } );
 											switch ( a_req.body.action )
 											{
-												case 0: // Rock
+												case "0": // Rock
 													if ( opponentAction == 2 ) // Scissors
 														winnerId = userId;
 													if ( opponentAction == 1 ) // Paper
 														winnerId = opponentId;
 													break;
 
-												case 1: // Paper
+												case "1": // Paper
 													if ( opponentAction == 0 ) // Rock
 														winnerId = userId;
 													if ( opponentAction == 2 ) // Scissors
 														winnerId = opponentId;
 													break;
 
-												case 2: // Scissors
+												case "2": // Scissors
 													if ( opponentAction == 1 ) // Paper
 														winnerId = userId;
 													if ( opponentAction == 0 ) // Rock
 														winnerId = opponentId;
 													break;
+												default:
+													console.log( "blep" );
 											}
 
 											// Check if there's a game winner
@@ -549,7 +558,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 
 											logger.info( "Updating round results" );
 											dbService.queryPrepared( "UPDATE t_rounds SET " + playerNumber + "TurnId = :turnId, winnerId = :winnerId WHERE roundId = :roundId",
-												{ turnId: a_turnResult.id, winnerId: winnerId, roundId: round.roundId },
+												{ turnId: a_addTurnResult.id, winnerId: winnerId, roundId: round.roundId },
 												function ( a_result )
 												{
 													a_res.send( { ok: true } );
@@ -698,9 +707,11 @@ function StartNewRound( a_gameId, a_callback )
 
 function GetWinsFromRounds( a_userId, a_roundsDBRows )
 {
+	logger.verbose( "Checking wins for " + a_userId );
 	var wins = 0;
-	for ( var i = 0; i < a_roundsDBRows; ++i )
+	for ( var i = 0; i < a_roundsDBRows.length; ++i )
 	{
+		//logger.verbose( "Round " + a_roundsDBRows[ i ].roundId + " winner is " + a_roundsDBRows[ i ].winnerId );
 		if ( a_roundsDBRows[ i ].winnerId == a_userId )
 			++wins;
 	}
