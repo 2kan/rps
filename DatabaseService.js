@@ -58,4 +58,16 @@ module.exports = class DatabaseService
 			}
 		);
 	}
+
+	// Returns user details from the database for given user IDs
+	// a_userIds	array of user Ids
+	GetUsers( a_userIds, a_callback )
+	{
+		this.query( "SELECT * FROM t_users WHERE userId IN (" + a_userIds.join( ", " ) + ")",
+			function ( a_response )
+			{
+				a_callback( { err: a_response.err, users: a_response.rows } );
+			}
+		);
+	}
 }

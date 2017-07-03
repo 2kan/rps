@@ -695,6 +695,64 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 													{ winnerId: winnerId, gameId: game.gameId },
 													function ( a_result ) { }
 												);
+
+												var loserId = ( winnerId == userId ) ? opponentId : userId;
+
+												///////////////////////////////////////////////////////////////
+												// Calculate Elo score and update win/loss counter
+												///////////////////////////////////////////////////////////////
+												dbService.GetUsers( [ userId, opponentId ], ( a_usersResponse ) =>
+												{
+													var playerProfile = ( a_usersResponse.users[ 0 ].userId == userId ) ? a_usersResponse.users[ 0 ] : a_usersResponse.users[ 1 ];
+													var opponentProfile = ( a_usersResponse.users[ 1 ].userId == userId ) ? a_usersResponse.users[ 0 ] : a_usersResponse.users[ 1 ];
+
+													// Add to local win/loss counters
+													if ( winnerId == userId )
+													{
+														playerProfile.wins++;
+														opponentProfile.losses++;
+													}
+													else
+													{
+														playerProfile.losses++;
+														opponentProfile.wins++;
+													}
+
+													var playerNewTotalOpponentElo = playerProfile.totalOpponentElo + opponentProfile.elo;
+													var opponentNewTotalOpponentElo = opponentProfile.totalOpponentElo + playerProfile.elo;
+
+													var playerNewElo = ( playerNewTotalOpponentElo + ( 400 * ( playerProfile.wins - playerProfile.losses ) ) ) / ( playerProfile.wins + playerProfile.losses );
+													var opponentNewElo = ( opponentNewTotalOpponentElo + ( 400 * ( opponentProfile.wins - opponentProfile.losses ) ) ) / ( opponentProfile.wins + opponentProfile.losses );
+
+													// The below is necessary to avoid unecessary database access
+													// I know it's ugly
+													if ( winnerId == userId )
+													{
+														// Update winner (user)
+														dbService.queryPrepared( "UPDATE t_users SET wins = wins + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :winnerId",
+															{ winnerId: userId, elo: playerNewElo, totalOpponentElo: playerNewTotalOpponentElo },
+															function ( a_result ) { } );
+
+														// Update loser (opponent)
+														var loserId = ( winnerId == userId ) ? opponentId : userId;
+														dbService.queryPrepared( "UPDATE t_users SET losses = losses + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :loserId",
+															{ loserId: opponentId, elo: opponentNewElo, totalOpponentElo: opponentNewTotalOpponentElo },
+															function ( a_result ) { } );
+													}
+													else
+													{
+														// Update winner (opponent)
+														dbService.queryPrepared( "UPDATE t_users SET wins = wins + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :winnerId",
+															{ winnerId: opponentId, elo: opponentNewElo, totalOpponentElo: opponentNewTotalOpponentElo },
+															function ( a_result ) { } );
+
+														// Update loser (user)
+														var loserId = ( winnerId == userId ) ? opponentId : userId;
+														dbService.queryPrepared( "UPDATE t_users SET losses = losses + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :loserId",
+															{ loserId: userId, elo: playerNewElo, totalOpponentElo: playerNewTotalOpponentElo },
+															function ( a_result ) { } );
+													}
+												} );
 											}
 
 											logger.info( "Updating round results" );
