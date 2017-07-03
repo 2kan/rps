@@ -28,7 +28,7 @@
 					Log-in to your account
 				</div>
 			</h2>
-			<form class="ui large form">
+			<form class="ui large form" id="loginForm">
 				<div class="ui stacked segment">
 					<div class="field">
 						<div class="ui left icon input">
@@ -64,35 +64,31 @@
 					<div class="field">
 						<div class="ui left icon input">
 							<i class="user icon"></i>
-							<input type="text" name="user" id="user" placeholder="Username">
+							<input type="text" name="user" id="userReg" placeholder="Username">
 						</div>
 					</div>
 					<div class="field">
 						<div class="ui left icon input">
 							<i class="mail icon"></i>
-							<input type="text" name="email" id="email" placeholder="Email address">
+							<input type="text" name="email" id="emailReg" placeholder="Email address">
 						</div>
 					</div>
 					<div class="field">
 						<div class="ui left icon input">
 							<i class="lock icon"></i>
-							<input type="password" name="pass" id="pass" placeholder="Password">
+							<input type="password" name="pass" id="passReg" placeholder="Password">
 						</div>
 					</div>
 
 					<div class="ui error message"></div>
+					<div class="ui divider"></div>
+
+					<div class="ui green right labeled icon submit button">
+						Sign up
+						<i class="checkmark icon"></i>
+					</div>
 
 				</form>
-			</div>
-		</div>
-
-		<div class="actions">
-			<div class="ui black deny button">
-				Cancel
-			</div>
-			<div class="ui positive right labeled icon button">
-				Sign up
-				<i class="checkmark icon"></i>
 			</div>
 		</div>
 	</div>
