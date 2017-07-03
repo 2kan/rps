@@ -169,7 +169,7 @@ app.post( "/api/username", function ( a_req, a_res )
 	}
 
 	logger.verbose( "Check on username '" + a_req.body.username + "' from IP " + a_req.ip );
-	
+
 	dbService.queryPrepared( "SELECT * FROM t_users WHERE username = :username",
 		{ username: a_req.body.username },
 		function ( a_result )
@@ -286,7 +286,7 @@ app.post( "/api/games", function ( a_req, a_res )
 										// that the response isn't sent until all games have been set
 										if ( i >= a_result.rows.length )
 										{
-											a_res.send( { games: res.games } );
+											a_res.send( { ok: true, games: res.games } );
 										}
 									}
 								);
@@ -389,7 +389,7 @@ app.post( "/api/game", function ( a_req, a_res )
 
 									if ( roundsComplete == a_roundResult.rows.length )
 									{
-										a_res.send( { game: res } );
+										a_res.send( { ok: true, game: res } );
 									}
 								} );
 							}
