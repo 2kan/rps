@@ -360,7 +360,9 @@ app.post( "/api/games", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
-			logger.verbose( "User " + userId + " fetching games list" );
+			// I could filter the below from the console (and include in the log file if needed)
+			// but it's barely useful for debugging anyway
+			//logger.verbose( "User " + userId + " fetching games list" );
 
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE (t_games.playerOneId = :id OR t_games.playerTwoId = :id)", {
 				id: userId
