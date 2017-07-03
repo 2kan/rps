@@ -443,7 +443,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 
 			var userId = a_result.rows[ 0 ].userId;
 
-			logger.info( "User" + userId + " submitting action " + a_req.body.action + " for game " + a_req.body.gameId );
+			logger.info( "User " + userId + " submitting action " + a_req.body.action + " for game " + a_req.body.gameId );
 
 			dbService.queryPrepared( "SELECT * FROM t_games WHERE gameId = :gameid", {
 				gameid: a_req.body.gameId
@@ -477,7 +477,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 								var round = a_roundResult.rows[ i ];
 
 								// Skip if this round has been completed
-								if ( round.winnerId != 0 )
+								if ( round.winnerId != 0 && round.winnerId != null )
 									continue;
 
 								// TODO
@@ -486,7 +486,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 								// - If it's not, add a new turn and calculate the winner (if necessary)
 
 								addedTurn = true;
-								logger.info( "Round is currently in progress, submitting turn" );
+								logger.info( "Round " + round.roundId + " is currently in progress, submitting turn" );
 
 								// Add a new turn
 								SubmitTurn( round.roundId, userId, a_req.body.action, ( a_addTurnResult ) =>
@@ -496,6 +496,7 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 										{ opponentId: opponentId, roundId: round.roundId },
 										( a_turnResult ) =>
 										{
+											console.log(a_turnResult);
 											var opponentAction = a_turnResult.rows[ 0 ].action;
 
 											var winnerId = -1; // Set winner to -1 (a "draw") here so we don't
