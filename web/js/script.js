@@ -55,7 +55,7 @@ function SetupActiveGames()
 			var gamesPending = 0;
 
 			// Sort games by last modified date
-			var games = a_response.games.sort(SortGames);
+			var games = a_response.games.sort( SortGames );
 
 			var wins = 0;
 			var losses = 0;
@@ -77,7 +77,8 @@ function SetupActiveGames()
 
 				// Determine if this game is waiting on the user to have their turn
 				if ( ( games[ i ].playerOneId == _userid && games[ i ].currentRound.playerOneTurnId == null ) ||
-					( games[ i ].playerTwoId == _userid && games[ i ].currentRound.playerTwoTurnId == null ) )
+					( games[ i ].playerTwoId == _userid && games[ i ].currentRound.playerTwoTurnId == null ) ||
+					( games[ i ].currentRound.playerOneTurnId != null && games[ i ].currentRound.playerTwoTurnId != null && ( games[ i ].winnerId == 0 || games[ i ].winnerId == null ) ) )
 				{
 					// Game is waiting on player's turn
 
@@ -198,6 +199,14 @@ function SetupGameArea()
 	//						  jquery vomit
 	var waitingForPlayer = $( $( "#roundList .item" )[ 0 ] ).find( ".opponent" ).length == 1;
 
+	// If this is a new game, then there'll be nothing in the roundList to check the
+	// round status on
+	if ( $( "#roundList .item" ).length == 0 )
+	{
+		// Yep, this is a new game and it's waiting for the player to submit their move
+		waitingForPlayer = true;
+	}
+
 	$( "#extraText" ).css( "display", "none" );
 
 	$( "#gameControls" ).css( "display", "" );
@@ -211,6 +220,7 @@ function SetupGameArea()
 	}
 	else
 	{
+		$( "#gameArea .button" ).addClass( "disabled" );
 		$( "#waitingText" ).css( "display", "" );
 	}
 }
@@ -224,7 +234,7 @@ function SetupRoundHistory( a_gameObj )
 
 	for ( var i = 0; i < a_gameObj.rounds.length; ++i )
 	{
-		if ( a_gameObj.rounds[ i ] == null )
+		if ( a_gameObj.rounds[ i ] == null || a_gameObj.rounds[ i ].turns.length == 0 )
 			continue;
 
 		var roundObj = $( "<div class='item'></div>" );
@@ -290,6 +300,78 @@ function SubmitTurn( a_action )
 	{
 		$( "#gameArea button" ).removeClass( "loading" );
 
+		console.warn( "Could not connect to API" );
+		console.warn( a_err );
+	} );
+}
+
+
+function ShowUsers()
+{
+	var template = "" +
+		"<div class='item' data-userid=':userid'>" +
+		"	<i class='large user middle aligned icon'></i>" +
+		"	<div class='content'>" +
+		"		<a class='header'>:opponent</a>" +
+		"	</div>" +
+		"</div>";
+
+	$.ajax( {
+		url: "http://localhost:3000/api/users",
+		method: "post",
+		data: { sessionId: _session }
+	} ).done(( a_response ) =>
+	{
+		if ( a_response.error == undefined )
+		{
+			// Clear game list
+			$( "#gamesList" ).html( "" );
+
+			for ( var i = 0; i < a_response.users.length; ++i )
+			{
+				var userObj = $( template
+					.replace( ":userid", a_response.users[ i ].userId )
+					.replace( ":opponent", a_response.users[ i ].username ) );
+
+				userObj.on( "click", function ()
+				{
+					CreateGame( $( this ).data( "userid" ) );
+				} );
+
+				$( "#gamesList" ).append( userObj );
+			}
+		}
+		else
+		{
+
+		}
+	} ).fail(( a_err ) =>
+	{
+		console.warn( "Could not connect to API" );
+		console.warn( a_err );
+	} );
+}
+
+
+function CreateGame( a_opponentId )
+{
+	$.ajax( {
+		url: "http://localhost:3000/api/createGame",
+		method: "post",
+		data: { sessionId: _session, opponentId: a_opponentId }
+	} ).done(( a_response ) =>
+	{
+		if ( a_response.error == undefined )
+		{
+			SetupActiveGames();
+			ShowGame( a_response.gameId );
+		}
+		else
+		{
+
+		}
+	} ).fail(( a_err ) =>
+	{
 		console.warn( "Could not connect to API" );
 		console.warn( a_err );
 	} );

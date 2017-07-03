@@ -389,6 +389,21 @@ app.post( "/api/games", function ( a_req, a_res )
 									{
 										var thisGame = a_result.rows[ gamesLoaded ];
 
+										var currentRound;
+										if ( thisGame.currentRoundId == null )
+											currentRound = {
+												roundId: thisGame.currentRoundId,
+												playerOneTurnId: undefined,
+												playerTwoTurnId: undefined
+											};
+										else
+											currentRound = {
+												roundId: thisGame.currentRoundId,
+												playerOneTurnId: a_roundResult.rows[ 0 ].playerOneTurnId,
+												playerTwoTurnId: a_roundResult.rows[ 0 ].playerTwoTurnId
+											};
+
+
 										res.games[ res.games.length ] = {
 											gameId: thisGame.gameId,
 											timeStarted: thisGame.dateAdded,
@@ -398,11 +413,7 @@ app.post( "/api/games", function ( a_req, a_res )
 											opponentName: a_opponentResult.rows[ 0 ].username,
 											opponentId: a_opponentResult.rows[ 0 ].userid,
 											winnerId: thisGame.winnerId,
-											currentRound: {
-												roundId: thisGame.currentRoundId,
-												playerOneTurnId: a_roundResult.rows[ 0 ].playerOneTurnId,
-												playerTwoTurnId: a_roundResult.rows[ 0 ].playerTwoTurnId
-											}
+											currentRound: currentRound
 										};
 
 										++gamesLoaded;
