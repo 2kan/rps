@@ -316,6 +316,8 @@ function ShowUsers()
 		"	</div>" +
 		"</div>";
 
+	$( "#showUsersButton" ).addClass( "loading" );
+
 	$.ajax( {
 		url: "http://localhost:3000/api/users",
 		method: "post",
@@ -324,8 +326,8 @@ function ShowUsers()
 	{
 		if ( a_response.error == undefined )
 		{
-			// Clear game list
-			$( "#gamesList" ).html( "" );
+			// Clear game list and add a "back" button
+			$( "#gamesList" ).html( "<button class='ui fluid mini button' onclick='SetupActiveGames()'>Back to games</button>" );
 
 			for ( var i = 0; i < a_response.users.length; ++i )
 			{
@@ -345,8 +347,12 @@ function ShowUsers()
 		{
 
 		}
+
+		$( "#showUsersButton" ).removeClass( "loading" );
 	} ).fail(( a_err ) =>
 	{
+		$( "#showUsersButton" ).removeClass( "loading" );
+
 		console.warn( "Could not connect to API" );
 		console.warn( a_err );
 	} );
