@@ -704,7 +704,10 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 												dbService.GetUsers( [ userId, opponentId ], ( a_usersResponse ) =>
 												{
 													var playerProfile = ( a_usersResponse.users[ 0 ].userId == userId ) ? a_usersResponse.users[ 0 ] : a_usersResponse.users[ 1 ];
-													var opponentProfile = ( a_usersResponse.users[ 1 ].userId == userId ) ? a_usersResponse.users[ 0 ] : a_usersResponse.users[ 1 ];
+													var opponentProfile = ( a_usersResponse.users[ 0 ].userId == opponentId ) ? a_usersResponse.users[ 0 ] : a_usersResponse.users[ 1 ];
+
+													playerProfile = ConvertProfileIntegers( playerProfile );
+													opponentProfile = ConvertProfileIntegers( opponentProfile );
 
 													// Add to local win/loss counters
 													if ( winnerId == userId )
@@ -718,11 +721,15 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 														opponentProfile.wins++;
 													}
 
+													// Calculate new Elo scores
 													var playerNewTotalOpponentElo = playerProfile.totalOpponentElo + opponentProfile.elo;
 													var opponentNewTotalOpponentElo = opponentProfile.totalOpponentElo + playerProfile.elo;
 
 													var playerNewElo = ( playerNewTotalOpponentElo + ( 400 * ( playerProfile.wins - playerProfile.losses ) ) ) / ( playerProfile.wins + playerProfile.losses );
 													var opponentNewElo = ( opponentNewTotalOpponentElo + ( 400 * ( opponentProfile.wins - opponentProfile.losses ) ) ) / ( opponentProfile.wins + opponentProfile.losses );
+
+													//logger.verbose( "PlayerElo " + playerNewElo );
+													//logger.verbose( "OpponenetElo " + opponentNewElo );
 
 													// The below is necessary to avoid unecessary database access
 													// I know it's ugly
@@ -731,26 +738,26 @@ app.post( "/api/submitTurn", function ( a_req, a_res )
 														// Update winner (user)
 														dbService.queryPrepared( "UPDATE t_users SET wins = wins + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :winnerId",
 															{ winnerId: userId, elo: playerNewElo, totalOpponentElo: playerNewTotalOpponentElo },
-															function ( a_result ) { } );
+															function ( a_result ) { if ( a_result.err != undefined ) { logger.warn( a_result.err ); } } );
 
 														// Update loser (opponent)
-														var loserId = ( winnerId == userId ) ? opponentId : userId;
+														//var loserId = ( winnerId == userId ) ? opponentId : userId;
 														dbService.queryPrepared( "UPDATE t_users SET losses = losses + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :loserId",
 															{ loserId: opponentId, elo: opponentNewElo, totalOpponentElo: opponentNewTotalOpponentElo },
-															function ( a_result ) { } );
+															function ( a_result ) { if ( a_result.err != undefined ) { logger.warn( a_result.err ); } } );
 													}
 													else
 													{
 														// Update winner (opponent)
 														dbService.queryPrepared( "UPDATE t_users SET wins = wins + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :winnerId",
 															{ winnerId: opponentId, elo: opponentNewElo, totalOpponentElo: opponentNewTotalOpponentElo },
-															function ( a_result ) { } );
+															function ( a_result ) { if ( a_result.err != undefined ) { logger.warn( a_result.err ); } } );
 
 														// Update loser (user)
-														var loserId = ( winnerId == userId ) ? opponentId : userId;
+														//var loserId = ( winnerId == userId ) ? opponentId : userId;
 														dbService.queryPrepared( "UPDATE t_users SET losses = losses + 1, elo = :elo, totalOpponentElo = :totalOpponentElo WHERE userId = :loserId",
 															{ loserId: userId, elo: playerNewElo, totalOpponentElo: playerNewTotalOpponentElo },
-															function ( a_result ) { } );
+															function ( a_result ) { if ( a_result.err != undefined ) { logger.warn( a_result.err ); } } );
 													}
 												} );
 											}
@@ -916,4 +923,18 @@ function GetWinsFromRounds( a_userId, a_roundsDBRows )
 	}
 
 	return wins;
+}
+
+
+// Given a user profile (full output of a user from t_users), converts strings to integers
+// where necessary (SQL queries return integers as strings :/ )
+function ConvertProfileIntegers( a_profile )
+{
+	a_profile.wins = parseInt( a_profile.wins );
+	a_profile.losses = parseInt( a_profile.losses );
+	a_profile.elo = parseInt( a_profile.elo );
+	a_profile.totalOpponentElo = parseInt( a_profile.totalOpponentElo );
+	a_profile.extraLives = parseInt( a_profile.extraLives );
+
+	return a_profile;
 }
